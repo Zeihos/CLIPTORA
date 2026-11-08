@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.8-alpha — dialogue setup, payoff and reaction-aware selection.
+0.1.9-alpha — context-aware shortlist ranking, near-duplicate dialogue filtering and selection report.

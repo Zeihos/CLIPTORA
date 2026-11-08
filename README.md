@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.8**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Alpha 0.1.9**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
 ## What it can do today
 
@@ -21,7 +21,7 @@
 | --- | --- |
 | Library | Recursively scan a user-selected folder of videos |
 | Analysis | Relative audio reaction peaks and optional visual motion; optional local speech recognition via `faster-whisper` |
-| Context | Keep surrounding dialogue and manually edit clip start/end |
+| Context | Keep surrounding dialogue, rank candidates by reviewable context signals and manually edit clip start/end |
 | AI | Optional **local** Ollama for scoring dialogue (quality is experimental) |
 | Review | Browser preview, human-readable selection reasons, enable/disable, adjust clips and mark subtle zooms |
 | Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT |
@@ -84,7 +84,8 @@ On Windows use `BUILD_RUST_WINDOWS.bat` to copy the compiled binary to `tools/`.
 - [x] Optional speech transcription, optional Ollama dialogue scoring
 - [x] Windows launchers with explicit Python 3.12
 - [ ] Stronger game-event and joke-context detection
-- [ ] Transparent edit decisions and preview comparison
+- [x] Text-based near-duplicate shortlist filtering and transparent ranking hints
+- [ ] Side-by-side visual clip comparison and event-aware semantic ranking
 - [ ] Better zooms, captions, SFX and meme templates
 - [x] Optional Rust file inventory with automatic Python fallback
 - [ ] Long-library benchmarks and fault-tolerant job queue
@@ -97,7 +98,7 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.8-alpha.
+**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.9-alpha.
 
 ## CLIPTORA 0.1.6 queue troubleshooting
 
@@ -109,12 +110,22 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security 
 
 ## CLIPTORA 0.1.7 — audio reaction highlights
 
-Use **Scan → Analyze → Create selection**. For already-analyzed unchanged files, use **Create selection** again; no new speech model or reanalysis is required. This replaces the draft selection, so back up or export your manually reviewed draft before rebuilding it. Upgrading alone does not discard saved edits.
+Use the existing workflow **Scan → Analyze → Create selection**. For already-analyzed unchanged files, click **Create selection** again to rebuild the proposed clips using the new relative-reaction algorithm. This action replaces the draft selection, so **back up or export any manually reviewed draft first**. Simply upgrading does not destroy saved clip edits.
 
-Suggested clips can now show **Основание** (why): an acoustic spike compared with recent sound, nearby speech, and/or motion. These are statistical clues, **not** verified jokes, emotions, speakers or game events. The 0–100 score ranks candidates and is not a calibrated probability. Recordings remain local.
+Each automatically suggested clip may include **Основание** (why it was suggested): sound spike compared to nearby sound, nearby speech and/or motion. These are statistical clues, **not** verified jokes, emotions, speakers or game events. The ``score/100`` is a ranking heuristic, not a calibrated probability.
+
+The new detector only uses existing 0.5-second RMS levels and optional speech/motion metadata; it never sends gameplay recordings to an external service. A first scan and speech analysis can still take time. Audio-only videos work without Whisper or Rust.
 
 ## CLIPTORA 0.1.8 — speech context windows
 
 The **Create selection** action now proposes bounded dialogue windows (at most 36 seconds) which try to preserve an earlier setup, a plausible punchline/reaction and a short follow-up/beat. Signals come from existing Whisper transcript timestamps, optional local Ollama heuristic ratings and the previously recorded audio-reaction metadata; the app **cannot reliably identify actual jokes or speakers**. Results remain reviewable, editable suggestions, not guaranteed funny clips.
 
-The new context algorithm reuses cached analysis from 0.1.7: **you do not need to rescan or retranscribe** an unchanged recording. **Creating a new selection replaces the entire current draft** (including manually reviewed clips), so keep a backup of project.json or export your draft first. Just upgrading preserves the project without rewriting the draft.
+The new context algorithm reuses cached analysis from 0.1.7: **you do not need to rescan or retranscribe** an unchanged recording. **Creating a new selection replaces the entire current draft** (including manually reviewed clips), so keep a backup of `project.json` or export your draft first. Just upgrading preserves the project without rewriting the draft.
+
+## CLIPTORA 0.1.9 — shortlist quality and dialogue comparison
+
+After the existing **Scan → Analyze** steps, press **Create selection** to rebuild a shortlist with the new local ranking stage. This version reuses existing analysis (Whisper / audio / motion) and adds no model downloads. It gives a small preference to extended dialogue with an earlier setup and later reply, and penalizes very short dialogue with little context. It suppresses near-identical, informative transcript passages when duration is comparable; generic labels like "sound reaction" never cause deduplication. Different punchlines are intentionally retained unless their text is extremely similar.
+
+The interface now shows the original raw heuristic score through the ranking badge tooltip, the adjusted selection priority, the reasons for its adjustment and a summary of overlaps / duplicate suggestions skipped during the selection pass. **These signals do not prove that two clips contain the same visual event, or that a joke is funny.** If auto-transcription repeats or changes words, some repeated scenes may still pass or distinct dialogue may be filtered. Please review before exporting.
+
+The `selection_summary` in local `project.json` describes the **last automatic shortlist** only. Subsequent manual clip edits do not recompute this history. Rebuilding the draft replaces previous manual edits as in earlier versions; make a backup or export before pressing Create selection again. Upgrading the application itself does not rebuild the draft or discard cached analysis.

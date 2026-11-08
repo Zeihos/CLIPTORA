@@ -21,6 +21,7 @@ from pathlib import Path
 from scanner_bridge import discover, locate_scanner
 from highlight_signals import detect_audio_reactions
 from dialogue_context import build_dialogue_windows
+from candidate_selection import select_best_clips
 
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
@@ -287,7 +288,6 @@ def generate_candidates(file):
     return candidates
 
 
-
 class Studio:
     def __init__(self, work_dir=None):
         # Reuse existing Alpha data without moving potentially large render/cache files.
@@ -373,7 +373,7 @@ class Studio:
                 if state == 'complete' and not done:
                     state = 'pending'
                 if recover_running and state == 'running':
-                    state = 'pending'
+                    state = 'pending'  # A previously running process cannot have survived restart.
                 if state not in ('pending', 'running', 'complete', 'failed'):
                     state = 'pending'
                 jobs[mid] = {'state': state, 'signature': signature,
@@ -402,6 +402,7 @@ class Studio:
                     'target_minutes':self.project.get('target_minutes',12),
                     'settings':self.project.get('settings',{}),
                     'last_output':self.project.get('last_output',''),
+                    'selection_summary':self.project.get('selection_summary', {}),
                     'ffmpeg':bool(locate_ffmpeg('ffmpeg')),'ffprobe':bool(locate_ffmpeg('ffprobe')),
                     'whisper_installed':self.whisper_available(),
                     'rust_scanner_available':bool(locate_scanner()),
@@ -451,6 +452,7 @@ class Studio:
         # Prevent scanning output renders as sources on later runs.
         if folder == self.work_dir or self.work_dir.is_relative_to(folder):
             raise ValueError('Папка проекта должна находиться вне папки исходников.')
+        # Validate before mutating the project; resource settings are not AI settings.
         if settings and 'cpu_threads' in settings:
             count = settings['cpu_threads']
             if type(count) is not int or not 1 <= count <= 8:
@@ -467,6 +469,7 @@ class Studio:
                 self.project['settings'].update({k:v for k,v in settings.items()
                                                   if k in ('vision','whisper','whisper_model','ollama_model','cpu_threads')})
             if before_signature != self.analysis_signature():
+                # Analysis is settings-specific; retain original media, not stale scores.
                 for f in self.project['files']:
                     f['analyzed'] = False
             self._sync_analysis_jobs()
@@ -566,6 +569,7 @@ class Studio:
         if settings.get('whisper') and self.whisper_available():
             self.log('Загрузка модели Whisper (при первом запуске может потребоваться Интернет)...')
             from faster_whisper import WhisperModel
+            # Keep inference sequential; bound decoder/CPU work to avoid oversubscription.
             model = WhisperModel(settings.get('whisper_model', 'small'), device='cpu',
                                  compute_type='int8', cpu_threads=threads, num_workers=1)
         elif settings.get('whisper'):
@@ -582,9 +586,10 @@ class Studio:
                 job['state'] = 'running'
                 job['attempts'] += 1
                 job['error'] = ''
-                self._save()
+                self._save()  # Crash recovery can see this job was interrupted.
             self.log(f'Анализ {i+1}/{total}: {file["relative"]} (CPU: {threads} потоков)')
             try:
+                # Do not analyze stale files: a rescan is needed to update metadata/ID.
                 stat = Path(file['path']).stat()
                 if stat.st_size != file['size'] or ('mtime_ns' in file and stat.st_mtime_ns != file['mtime_ns']):
                     raise RuntimeError('Исходный файл изменился. Повторно просканируйте библиотеку.')
@@ -648,30 +653,17 @@ class Studio:
                 c['media_id']=f['id']
                 c['source_name']=f['name']
                 all_candidates.append(c)
-        all_candidates.sort(key=lambda x: x['score'],reverse=True)
-        selected=[]
-        used=0
-        counts={}
-        # Greedy, with a modest file diversity penalty.
-        while all_candidates and used<target_seconds and len(selected)<240:
-            all_candidates.sort(key=lambda x: x['score']-min(18,counts.get(x['media_id'],0)*1.1),reverse=True)
-            c=all_candidates.pop(0)
-            if any(x['media_id']==c['media_id'] and max(0,min(x['end'],c['end'])-max(x['start'],c['start']))>0.3 for x in selected):
-                continue
-            if used+(c['end']-c['start'])>target_seconds+8 and used>target_seconds*.65:
-                continue
-            selected.append(c)
-            used+=c['end']-c['start']
-            counts[c['media_id']]=counts.get(c['media_id'],0)+1
+        selected, summary = select_best_clips(all_candidates, target_seconds)
         # Each file stays chronological; shots from different recording sessions are grouped.
         order={f['id']:i for i,f in enumerate(files)}
         selected.sort(key=lambda x:(order[x['media_id']],x['start']))
         for i,c in enumerate(selected):
-            c.update({'id':f'c{i:05d}','enabled':True,'zoom':c['score']>=68})
+            c.update({'id':f'c{i:05d}','enabled':True,'zoom':c['rank_score']>=68})
         self.project['clips']=selected
+        self.project['selection_summary']=summary
         self.project['target_minutes']=float(target_minutes)
         self._save()
-        self.log(f'Собран черновой план: {len(selected)} фрагментов, {used/60:.1f} минут. Проверьте список перед экспортом!')
+        self.log(f'Собран черновой план: {len(selected)} фрагментов, {summary["selected_seconds"]/60:.1f} минут. Проверьте список перед экспортом!')
         return selected
 
     def add_clip(self, media_id, start, end):

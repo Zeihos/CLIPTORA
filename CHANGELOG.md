@@ -1,7 +1,7 @@
 # 0.1.8 Alpha — dialogue context and natural endings
 
 - Add a deterministic transcript-context planner. It keeps preceding setup lines, a ranked/reaction-adjacent sentence, its reply and an ending beat rather than simply adding a fixed 3 seconds around speech groups.
-- Use existing Ollama humor scores (when configured) and corroborated audio peaks as ranking hints, not reliable joke or event recognition.
+- Use existing Ollama `humor` scores (when configured) and corroborated audio peaks as **ranking hints**, not reliable joke or event recognition.
 - Clamp proposed dialogue clips to 36 seconds and skip malformed/empty ASR segments. Keep far-apart scenes separate.
 - Show context reasons alongside the original sound/motion selection reasons.
 - Build new selections directly from saved 0.1.7 analysis: no reanalysis is required, but manually reviewed drafts must be backed up before using Create selection.
@@ -9,13 +9,13 @@
 
 # 0.1.7 Alpha — explainable reaction highlights
 
-- Rank short sound changes against the nearby six seconds instead of just selecting loud parts.
-- Filter isolated one-bucket anomalies unless nearby speech or movement corroborates them.
-- Add transparent selection reasons to the clip-review interface.
-- Boost dialogue candidates when a nearby reaction supports the sequence.
-- Work on saved v0.1.6 analysis data without retranscription, cloud services or Rust changes.
-- Add regression tests for background music, artifacts, speech, motion, silence and boundary conditions.
-- Reminder: acoustic changes are not guaranteed funny moments or verified game events.
+- Find *relative* audio spikes compared with the preceding six seconds rather than simply selecting the loudest recording moments.
+- Filter isolated single-bucket audio anomalies unless nearby speech or visual movement offers corroborating context.
+- Optionally correlate reaction windows with Whisper timestamps and visual motion, and show human-readable selection reasons in the review UI.
+- Increase dialogue highlight ranking when a nearby sound reaction supports the setup/payoff; keep three seconds of surrounding dialogue.
+- Run on saved 0.1.6 analysis data: no new speech models, reanalysis, or cloud services are needed to try the updated selection algorithm.
+- Add deterministic regression tests covering constant music, audio glitches, dialogue, motion, silence and media boundaries.
+- Caution: audio bursts do not imply humor, a particular emotion, a game kill, or even a human voice; every suggestion needs review.
 
 # 0.1.6 Alpha — durable analysis queue
 
@@ -28,6 +28,15 @@
 - Keeps optional Rust scanner and existing v0.1.5 project files compatible.
 
 # Changelog
+
+## 0.1.9-alpha — 2026-11-08
+
+- Add explainable quality ranking for dialogue context, a small penalty for isolated one-word shouts, and modest preference for setup + response.
+- Filter near-identical informative transcript-based candidates across recordings, preserving distinct punchlines and nonverbal reactions.
+- Keep clip decisions in original source order and preserve cached analysis, source media and existing drafts until a user explicitly rebuilds selection.
+- Show adjusted selection priority, ranking hints and deduplication summary in the UI.
+- Add regression tests for candidate comparisons, source overlaps, invalid scores and persisted selection summary.
+- This remains lexical/heuristic ranking; no semantic video understanding or guaranteed comedic timing.
 
 ## 0.1.5-alpha — 2026-11-08
 
