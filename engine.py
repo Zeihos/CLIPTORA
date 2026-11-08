@@ -4,6 +4,7 @@ Source files are read-only. Working files, metadata and renders reside outside t
 No cloud calls: optional Ollama only at 127.0.0.1, optional Whisper downloads a model on first use.
 """
 import array
+import copy
 import datetime
 import json
 import math
@@ -16,12 +17,14 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 from scanner_bridge import discover, locate_scanner
 from highlight_signals import detect_audio_reactions
 from dialogue_context import build_dialogue_windows
 from candidate_selection import select_best_clips
+from plan_variants import create_variants
 
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
@@ -307,6 +310,8 @@ class Studio:
         self.error = ''
         self.events = []
         self.scan_backend = 'not scanned'
+        self._project_revision = 0
+        self._preview_cache = None
         if self.meta.exists():
             try:
                 self.project = json.loads(self.meta.read_text(encoding='utf-8'))
@@ -314,12 +319,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.8'
+        self.project['version'] = '0.1.10'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.8','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
+        return {'version':'0.1.10','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
                 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
@@ -328,6 +333,7 @@ class Studio:
             tmp = self.meta.with_suffix('.json.tmp')
             tmp.write_text(json.dumps(self.project,ensure_ascii=False,indent=2),encoding='utf-8')
             os.replace(tmp,self.meta)
+            self._project_revision += 1
 
     def log(self, msg):
         with self.lock:
@@ -403,6 +409,8 @@ class Studio:
                     'settings':self.project.get('settings',{}),
                     'last_output':self.project.get('last_output',''),
                     'selection_summary':self.project.get('selection_summary', {}),
+                    'plan_undo_available':bool(self.project.get('plan_history')),
+                    'plan_history_size':len(self.project.get('plan_history', [])),
                     'ffmpeg':bool(locate_ffmpeg('ffmpeg')),'ffprobe':bool(locate_ffmpeg('ffprobe')),
                     'whisper_installed':self.whisper_available(),
                     'rust_scanner_available':bool(locate_scanner()),
@@ -640,31 +648,115 @@ class Studio:
         else:
             self.log(f'Очередь обработана: {total} записей. Прогресс сохранён.')
 
-    def plan(self,target_minutes=12):
-        files=self.project['files']
-        if not files or not any(self._current_analysis(f) for f in files):
-            raise ValueError('Сначала выполните анализ видео с текущими настройками')
-        target_seconds=max(30,min(2*3600,int(float(target_minutes)*60)))
-        all_candidates=[]
-        for f in files:
-            if not self._current_analysis(f):
-                continue
-            for c in generate_candidates(f):
-                c['media_id']=f['id']
-                c['source_name']=f['name']
-                all_candidates.append(c)
-        selected, summary = select_best_clips(all_candidates, target_seconds)
-        # Each file stays chronological; shots from different recording sessions are grouped.
-        order={f['id']:i for i,f in enumerate(files)}
-        selected.sort(key=lambda x:(order[x['media_id']],x['start']))
-        for i,c in enumerate(selected):
-            c.update({'id':f'c{i:05d}','enabled':True,'zoom':c['rank_score']>=68})
-        self.project['clips']=selected
-        self.project['selection_summary']=summary
-        self.project['target_minutes']=float(target_minutes)
-        self._save()
-        self.log(f'Собран черновой план: {len(selected)} фрагментов, {summary["selected_seconds"]/60:.1f} минут. Проверьте список перед экспортом!')
-        return selected
+    def preview_plans(self, target_minutes=12):
+        """Create alternatives in memory; never touch the saved project/draft."""
+        with self.lock:
+            if self.worker and self.worker.is_alive():
+                raise RuntimeError('Дождитесь завершения анализа или экспорта')
+            try:
+                minutes = float(target_minutes)
+            except (TypeError, ValueError, OverflowError):
+                raise ValueError('Введите корректную длительность в минутах') from None
+            if not math.isfinite(minutes) or not 0 < minutes <= 120:
+                raise ValueError('Длительность должна быть больше 0 и не более 120 минут')
+            files = self.project['files']
+            if not files or not any(self._current_analysis(f) for f in files):
+                raise ValueError('Сначала выполните анализ видео с текущими настройками')
+            target_seconds = max(30, int(minutes * 60))
+            all_candidates = []
+            for file in files:
+                if not self._current_analysis(file):
+                    continue
+                for candidate in generate_candidates(file):
+                    c = dict(candidate)
+                    c['media_id'] = file['id']
+                    c['source_name'] = file['name']
+                    all_candidates.append(c)
+            variants = create_variants(all_candidates, target_seconds,
+                                       {f['id']: i for i, f in enumerate(files)})
+            token = uuid.uuid4().hex
+            self._preview_cache = {'token': token, 'revision': self._project_revision,
+                                   'variants': copy.deepcopy(variants), 'minutes': minutes}
+            current = self.project.get('clips', [])
+            return {'token': token, 'variants': variants,
+                    'current_draft': {'clips': len(current), 'selected_seconds':
+                                      round(sum(float(c['end']) - float(c['start'])
+                                                for c in current if c.get('enabled')), 1)}}
+
+    def apply_plan_variant(self, token, variant):
+        """Explicitly replace the draft, saving a reversible snapshot on disk."""
+        with self.lock:
+            if self.worker and self.worker.is_alive():
+                raise RuntimeError('Не изменяйте монтаж во время обработки')
+            preview = self._preview_cache
+            if not preview or token != preview['token']:
+                raise ValueError('Предпросмотр отсутствует. Создайте новый.')
+            if preview['revision'] != self._project_revision:
+                raise ValueError('Предпросмотр устарел после изменения проекта. Создайте новый.')
+            if variant not in preview['variants']:
+                raise ValueError('Неизвестный вариант подборки')
+            chosen = preview['variants'][variant]
+            if not chosen['clips']:
+                raise ValueError('В выбранном варианте нет фрагментов')
+            keys = ('clips', 'selection_summary', 'target_minutes', 'plan_history')
+            before = {k: copy.deepcopy(self.project[k]) for k in keys if k in self.project}
+            try:
+                history = list(self.project.get('plan_history', []))
+                history.append({'clips': copy.deepcopy(self.project.get('clips', [])),
+                                'selection_summary': copy.deepcopy(self.project.get('selection_summary', {})),
+                                'target_minutes': self.project.get('target_minutes', 12),
+                                'saved_at': datetime.datetime.now().isoformat(timespec='seconds')})
+                self.project['plan_history'] = history[-5:]
+                self.project['clips'] = copy.deepcopy(chosen['clips'])
+                self.project['selection_summary'] = copy.deepcopy(chosen['summary'])
+                self.project['target_minutes'] = preview['minutes']
+                self._save()
+            except Exception:
+                for key in keys:
+                    if key in before:
+                        self.project[key] = before[key]
+                    else:
+                        self.project.pop(key, None)
+                raise
+            self._preview_cache = None
+            self.log(f'Применён вариант «{chosen["title"]}»; предыдущий черновик сохранён для отмены.')
+            return {'variant': variant, 'clips': copy.deepcopy(self.project['clips'])}
+
+    def undo_plan(self):
+        """Recover the previous full draft, including disabled clips and manual changes."""
+        with self.lock:
+            if self.worker and self.worker.is_alive():
+                raise RuntimeError('Не изменяйте монтаж во время обработки')
+            history = self.project.get('plan_history', [])
+            if not history:
+                raise ValueError('Нет сохранённого предыдущего черновика')
+            previous = history[-1]
+            known_ids = {f['id'] for f in self.project['files']}
+            if any(c.get('media_id') not in known_ids for c in previous['clips']):
+                raise ValueError('Не удаётся восстановить: исходные файлы отсутствуют')
+            keys = ('clips', 'selection_summary', 'target_minutes', 'plan_history')
+            before = {k: copy.deepcopy(self.project[k]) for k in keys if k in self.project}
+            try:
+                self.project['clips'] = copy.deepcopy(previous['clips'])
+                self.project['selection_summary'] = copy.deepcopy(previous['selection_summary'])
+                self.project['target_minutes'] = previous['target_minutes']
+                self.project['plan_history'] = history[:-1]
+                self._save()
+            except Exception:
+                for key in keys:
+                    if key in before:
+                        self.project[key] = before[key]
+                    else:
+                        self.project.pop(key, None)
+                raise
+            self._preview_cache = None
+            self.log('Предыдущий черновик восстановлен со всеми ручными правками.')
+            return copy.deepcopy(self.project['clips'])
+
+    def plan(self, target_minutes=12):
+        """Legacy API: builds the balanced variant, retaining an undo snapshot."""
+        preview = self.preview_plans(target_minutes)
+        return self.apply_plan_variant(preview['token'], 'balanced')['clips']
 
     def add_clip(self, media_id, start, end):
         with self.lock:

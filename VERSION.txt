@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.9-alpha — context-aware shortlist ranking, near-duplicate dialogue filtering and selection report.
+0.1.10-alpha — compare three non-destructive plans with reversible draft history.

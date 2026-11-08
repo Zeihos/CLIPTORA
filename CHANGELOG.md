@@ -1,3 +1,11 @@
+# 0.1.10 Alpha — reversible alternative plans (2026-11-09)
+
+- Preview three heuristic edit selections (balanced, dialogue-heavy, action-heavy) without changing the current manual draft.
+- Inspect proposed scenes in the local player before explicitly applying a plan.
+- Every apply saves a previous draft in project.json (up to five undo levels), restoring labels, trims and disabled segments even after a restart.
+- Reject stale previews after persistent project changes and block applying during analysis/export.
+- These presets do not understand jokes or game events; 250 GB library performance has not been verified.
+
 # 0.1.8 Alpha — dialogue context and natural endings
 
 - Add a deterministic transcript-context planner. It keeps preceding setup lines, a ranked/reaction-adjacent sentence, its reply and an ending beat rather than simply adding a fixed 3 seconds around speech groups.

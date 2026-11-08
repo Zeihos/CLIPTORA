@@ -17,7 +17,7 @@ studio=None
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version='CLIPTORA/0.1.9'
+    server_version='CLIPTORA/0.1.10'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/status'):
@@ -114,6 +114,12 @@ class Handler(BaseHTTPRequestHandler):
                 studio.reset_analysis()
             elif path=='/api/plan':
                 studio.plan(payload.get('target_minutes',12))
+            elif path=='/api/plan-preview':
+                return self.send_blob(studio.preview_plans(payload.get('target_minutes',12)))
+            elif path=='/api/plan-apply':
+                return self.send_blob(studio.apply_plan_variant(payload.get('token',''),payload.get('variant','')))
+            elif path=='/api/plan-undo':
+                studio.undo_plan()
             elif path=='/api/clip-add':
                 studio.add_clip(payload['media_id'],payload['start'],payload['end'])
             elif path=='/api/clip':

@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.9**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Alpha 0.1.10**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
 ## What it can do today
 
@@ -98,7 +98,16 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.9-alpha.
+**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.10-alpha.
+
+## Compare three edit drafts safely (v0.1.10)
+
+After processing your videos, choose **Compare 3 variants** under Draft editing. CLIPTORA builds balanced, dialogue and action options from cached audio, speech and movement analysis. Preview does not overwrite project.json or manually edited clips; inspect any proposed shot in the local player.
+
+Only an explicit Apply action replaces a draft. Previous clip lists (including enabled state, labels and trims) are recorded in plan_history in project.json, retaining up to five replacements. Choose Undo apply to restore the previous version even after restarting. Previews become invalid after changing the project. The legacy /api/plan endpoint also makes a reversible snapshot.
+
+Presets change transparent heuristic rankings, not any AI understanding of jokes or events. Back up the workspace before major edits. Performance on a complete 250 GB library has not been verified.
+
 
 ## CLIPTORA 0.1.6 queue troubleshooting
 
