@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.5-alpha — 2026-11-08
+
+- Add optional no-dependency Rust Core metadata scanner for local video libraries.
+- Automatically fall back to the existing Python scan when Rust is missing, fails, or outputs invalid metadata.
+- Preserve existing media IDs, analysis cache and manual edits across Rust/Python backends, including older 0.1.4 project files.
+- Add an opt-in Windows Rust build script and Rust+Python integration tests on Windows and Linux CI.
+- Rust only enumerates files; FFmpeg/ffprobe, AI inference, clip editing and export remain in Python.
+- No verified performance claims for a 250 GB library yet.
+
 ## 0.1.4-alpha — 2026-11-08
 
 - Preserve media IDs, cached analysis and manually reviewed clips across rescans when source recordings are unchanged.

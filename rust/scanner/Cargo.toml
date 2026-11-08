@@ -1,0 +1,10 @@
+[package]
+name = "cliptora-scanner"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Optional no-dependencies filesystem inventory accelerator for CLIPTORA"
+
+[[bin]]
+name = "cliptora-scanner"
+path = "src/main.rs"

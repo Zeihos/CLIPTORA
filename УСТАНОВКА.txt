@@ -18,3 +18,6 @@ CLIPTORA 0.1.3 ALPHA — установка Windows 10/11
 - Альфа-анализ не гарантирует распознавания шуток и мемов. Отбор нужно проверять вручную.
 
 Дополнительные инструкции: README.md.
+
+Optional Rust Core: install Rust via https://rustup.rs/ and run BUILD_RUST_WINDOWS.bat.
+Rust scans file metadata; AI and FFmpeg still run via Python. Without Rust everything works as before.

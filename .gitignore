@@ -33,3 +33,8 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Rust build output and optional local accelerator executable
+**/target/
+tools/cliptora-scanner.exe
+tools/cliptora-scanner

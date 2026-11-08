@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.4-alpha — incremental scanning, stable media IDs and AI-cache invalidation.
+0.1.5-alpha — optional Rust Core scanner and Python fallback.

@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.4**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified.
+> **Alpha 0.1.5**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
 ## What it can do today
 
@@ -26,6 +26,7 @@
 | Review | Browser preview, enable/disable, adjust clips and mark subtle zooms |
 | Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT |
 | Processing | Localhost server; preserves source files; incremental rescans, stable media IDs and resumable per-file analysis |
+| Rust Core | Optional Rust video file inventory scanner with automatic Python fallback (Rust does **not** run speech AI or FFmpeg) |
 
 **Not yet implemented:** automatic meme selection, precise semantic scene understanding, motion tracking, elaborate keyframed effects, professional audio mixing, a standalone `.exe` installer, or a multi-track timeline.
 
@@ -36,9 +37,10 @@
 3. Run `SETUP_WINDOWS.bat` to check Python and FFmpeg (the script can install FFmpeg with `winget`).
 4. Optional: run `INSTALL_AI_WINDOWS.bat` for `faster-whisper` speech recognition. Skip if already installed under Python 3.12.
 5. Run `START_WINDOWS.bat`; open <http://127.0.0.1:8765> if the browser does not start.
-6. Select the source footage folder → **Scan** → **Analyze** → **Create selection** → review clips → **Export MP4**.
+6. **Optional Rust Core:** install the stable Rust toolchain using [rustup](https://rustup.rs/) and run `BUILD_RUST_WINDOWS.bat`. This builds a native scanner into `tools/cliptora-scanner.exe`. It is not needed for basic operation.
+7. Select the source footage folder → **Scan** → **Analyze** → **Create selection** → review clips → **Export MP4**.
 
-In v0.1.4, rescanning an unchanged folder keeps previously selected clips and their edits. Changed or removed source files invalidate only their own clips; changed AI settings trigger reanalysis. Files analyzed before v0.1.4 will require one cache refresh because the old version did not record analysis settings.
+Since v0.1.4, rescanning an unchanged folder keeps previously selected clips and their edits. Changed or removed source files invalidate only their own clips; changed AI settings trigger reanalysis. Files analyzed before v0.1.4 will require one cache refresh because the old version did not record analysis settings.
 
 The first Whisper transcription may download model weights from the Internet. Afterwards the model can run locally. For dialogue scoring you can optionally install [Ollama](https://ollama.com/) and download a model; it is **not required**.
 
@@ -51,6 +53,18 @@ py -3.12 server.py
 ```
 
 This script uses Python's standard-library HTTP server and binds to `127.0.0.1` only. `FFmpeg` and `ffprobe` must be on PATH (or in `tools/`).
+
+## Rust Core (optional)
+
+The Rust scanner is an independent, dependency-free binary located at `rust/scanner/`.
+It walks the chosen footage directory and returns only video paths, sizes and modification times in JSON-lines format. It does **not** decode footage, replace FFmpeg, or accelerate Whisper. For new/changed video files, `ffprobe` still dominates scan time on many setups.
+
+```powershell
+cargo test --manifest-path rust/scanner/Cargo.toml
+cargo build --release --locked --manifest-path rust/scanner/Cargo.toml
+```
+
+On Windows use `BUILD_RUST_WINDOWS.bat` to copy the compiled binary to `tools/`. If the binary is unavailable or crashes, CLIPTORA automatically uses Python and keeps all existing library state. `CLIPTORA_SCANNER` can override the executable path. Never set it to an untrusted binary. Rust is optional for contributors as well as users.
 
 ## Privacy, storage and migration
 
@@ -68,6 +82,7 @@ This script uses Python's standard-library HTTP server and binds to `127.0.0.1` 
 - [ ] Stronger game-event and joke-context detection
 - [ ] Transparent edit decisions and preview comparison
 - [ ] Better zooms, captions, SFX and meme templates
+- [x] Optional Rust file inventory with automatic Python fallback
 - [ ] Long-library benchmarks and fault-tolerant job queue
 - [ ] Real desktop packaging, GPU acceleration and hardware detection
 - [ ] Multitrack non-linear editing timeline
@@ -78,4 +93,4 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.4-alpha.
+**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.5-alpha.

@@ -18,6 +18,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from scanner_bridge import discover, locate_scanner
+
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
             'что происходит', 'пизд', 'бля', 'сука', 'охрен', 'офиг', 'капец', 'еба',
@@ -307,6 +309,7 @@ class Studio:
         self.message = ''
         self.error = ''
         self.events = []
+        self.scan_backend = 'not scanned'
         if self.meta.exists():
             try:
                 self.project = json.loads(self.meta.read_text(encoding='utf-8'))
@@ -317,7 +320,7 @@ class Studio:
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.4','source_dir':'','files':[],'clips':[],
+        return {'version':'0.1.5','source_dir':'','files':[],'clips':[],
                 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':''},'last_output':''}
 
@@ -369,6 +372,8 @@ class Studio:
                     'last_output':self.project.get('last_output',''),
                     'ffmpeg':bool(locate_ffmpeg('ffmpeg')),'ffprobe':bool(locate_ffmpeg('ffprobe')),
                     'whisper_installed':self.whisper_available(),
+                    'rust_scanner_available':bool(locate_scanner()),
+                    'scan_backend':self.scan_backend,
                     'total_bytes':sum(f.get('size',0) for f in files),
                     'total_seconds':sum(f.get('duration',0) for f in files)}
 
@@ -445,49 +450,51 @@ class Studio:
         root = Path(configured)
         if not root.is_dir():
             raise RuntimeError('Сначала укажите папку с видео.')
+        metadata, backend = discover(root, self.stop, self.log)
         items=[]
         old = {f['path']:f for f in self.project['files']}
-        # Do not reuse IDs: reviewed clips refer to these IDs between scans.
+        # Never recycle IDs: reviewed clips depend on stable media IDs.
         known_numbers = [int(f['id'][1:]) for f in old.values()
                          if re.fullmatch(r'm[0-9]+', str(f.get('id', '')))]
         next_id = max(known_numbers, default=-1) + 1
         count=0
-        for dirpath, dirs, filenames in os.walk(root, followlinks=False):
+        for entry in metadata:
             if self.stop.is_set():
                 raise InterruptedError('Сканирование остановлено')
-            dirs[:]=[d for d in dirs if not d.startswith('.')]
-            for name in filenames:
-                if Path(name).suffix.lower() not in EXTS:
-                    continue
-                path = Path(dirpath)/name
-                if path.is_symlink():
-                    continue
-                try:
-                    info=path.stat()
-                    if info.st_size <= 0:
+            path = Path(entry['path'])
+            try:
+                size = entry['size']
+                mtime_ns = entry['mtime_ns']
+                # Old 0.1.4 project files have floating-point mtime but no mtime_ns.
+                # Dividing nanoseconds by 1e9 mirrors Python's st_mtime conversion.
+                mtime = mtime_ns / 1e9
+                prev = old.get(str(path))
+                same_time = (prev.get('mtime_ns') == mtime_ns if 'mtime_ns' in prev
+                             else abs(float(prev.get('mtime', 0)) - mtime) <= 1e-6) if prev else False
+                if prev and prev.get('size') == size and same_time:
+                    item = prev.copy()
+                    item['mtime_ns'] = mtime_ns
+                else:
+                    details=probe(path)
+                    if details['width'] <= 0 or details['duration'] <= 0:
                         continue
-                    prev=old.get(str(path))
-                    if prev and prev.get('size')==info.st_size and prev.get('mtime')==info.st_mtime:
-                        item=prev.copy()
-                    else:
-                        details=probe(path)
-                        if details['width'] <= 0 or details['duration'] <= 0:
-                            continue
-                        item={'id':f'm{next_id:06d}','name':path.name,'path':str(path),
-                              'relative':str(path.relative_to(root)), 'size':info.st_size,
-                              'mtime':info.st_mtime,**details,'analyzed':False}
-                        next_id += 1
-                    items.append(item)
-                    count+=1
-                    if count % 20==0:
-                        self.log(f'Обнаружено файлов: {count}')
-                except Exception as exc:
-                    self.log(f'Пропущено {name}: {exc}')
+                    item={'id':f'm{next_id:06d}','name':path.name,'path':str(path),
+                          'relative':str(path.relative_to(root)),**details,
+                          'size':size, 'mtime':mtime, 'mtime_ns':mtime_ns,
+                          'analyzed':False}
+                    next_id += 1
+                items.append(item)
+                count+=1
+                if count % 20==0:
+                    self.log(f'Обнаружено файлов: {count}')
+            except Exception as exc:
+                self.log(f'Пропущено {path.name}: {exc}')
         items.sort(key=lambda x: (x.get('mtime',0),x['path']))
         with self.lock:
             valid_ids={f['id'] for f in items}
             before_clips=len(self.project['clips'])
             self.project['files']=items
+            self.scan_backend=backend
             # Preserve user review/edit decisions for unchanged source recordings.
             self.project['clips']=[c for c in self.project['clips'] if c['media_id'] in valid_ids]
             removed_clips=before_clips-len(self.project['clips'])
