@@ -38,7 +38,7 @@ class IncrementalLibraryTests(unittest.TestCase):
         probe = self.scan()
         self.assertEqual(probe.call_count, 1, 'unchanged video must not be probed again')
         self.assertEqual(len(self.app.project['files']), 2)
-        retained = next(x for x in self.app.project['files'] if x['path'] == str(self.a))
+        retained = next(x for x in self.app.project['files'] if Path(x['path']).resolve() == self.a.resolve())
         self.assertEqual(retained['id'], original['id'])
         self.assertTrue(retained['analyzed'])
         self.assertEqual(retained['analysis'], original['analysis'])

@@ -1,0 +1,2 @@
+# Windows launchers must keep CMD-compatible CRLF on every checkout.
+*.bat text eol=crlf
