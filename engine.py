@@ -87,10 +87,10 @@ def _mean(values):
     return sum(values) / len(values) if values else 0
 
 
-def audio_envelope(path, duration, stop, on_progress=None):
+def audio_envelope(path, duration, stop, on_progress=None, threads=2):
     """Stream mono 8 kHz PCM; retain 0.5-second RMS, not the full sound."""
     ffmpeg = locate_ffmpeg('ffmpeg')
-    cmd = [ffmpeg, '-v', 'error', '-nostdin', '-i', str(path), '-vn',
+    cmd = [ffmpeg, '-v', 'error', '-nostdin', '-threads', str(threads), '-i', str(path), '-vn',
            '-ac', '1', '-ar', '8000', '-f', 's16le', 'pipe:1']
     p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, creationflags=(0x08000000 if os.name == 'nt' else 0))
@@ -128,12 +128,12 @@ def audio_envelope(path, duration, stop, on_progress=None):
     return levels
 
 
-def motion_envelope(path, stop, on_progress=None):
+def motion_envelope(path, stop, on_progress=None, threads=2):
     """Slow optional motion pass (0.5 FPS, 96x54 gray); no video kept in memory."""
     ffmpeg = locate_ffmpeg('ffmpeg')
     size = 96 * 54
-    cmd = [ffmpeg, '-v', 'error', '-nostdin', '-i', str(path), '-an',
-           '-vf', 'fps=1/2,scale=96:54,format=gray', '-f', 'rawvideo', 'pipe:1']
+    cmd = [ffmpeg, '-v', 'error', '-nostdin', '-threads', str(threads), '-i', str(path), '-an',
+           '-filter_threads', str(threads), '-vf', 'fps=1/2,scale=96:54,format=gray', '-f', 'rawvideo', 'pipe:1']
     p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE, creationflags=(0x08000000 if os.name == 'nt' else 0))
     values, previous = [], None
@@ -317,12 +317,14 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
+        self.project['version'] = '0.1.6'
+        self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.5','source_dir':'','files':[],'clips':[],
+        return {'version':'0.1.6','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
                 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
-                'whisper_model':'small', 'ollama_model':''},'last_output':''}
+                'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
     def _save(self):
         with self.lock:
@@ -356,14 +358,47 @@ class Studio:
         return bool(file.get('analyzed') and
                     file.get('analysis_signature') == self.analysis_signature())
 
+    def _sync_analysis_jobs(self, recover_running=False):
+        """Keep per-video queue state durable across scan, restart and settings changes."""
+        with self.lock:
+            old = self.project.get('analysis_jobs', {})
+            if not isinstance(old, dict):
+                old = {}
+            signature = self.analysis_signature()
+            jobs = {}
+            for file in self.project.get('files', []):
+                mid = file['id']
+                done = bool(file.get('analyzed') and file.get('analysis_signature') == signature)
+                previous = old.get(mid, {})
+                if not isinstance(previous, dict) or previous.get('signature') != signature:
+                    previous = {}
+                state = 'complete' if done else previous.get('state', 'pending')
+                if state == 'complete' and not done:
+                    state = 'pending'
+                if recover_running and state == 'running':
+                    state = 'pending'
+                if state not in ('pending', 'running', 'complete', 'failed'):
+                    state = 'pending'
+                jobs[mid] = {'state': state, 'signature': signature,
+                             'attempts': int(previous.get('attempts', 0)),
+                             'error': str(previous.get('error', ''))[:300] if state == 'failed' else ''}
+            self.project['analysis_jobs'] = jobs
+            return jobs
+
     def status(self):
         with self.lock:
             signature = self.analysis_signature()
             files = [{**{k:v for k,v in f.items() if k != 'analysis'},
-                      'analyzed':bool(f.get('analyzed') and f.get('analysis_signature') == signature)}
+                      'analyzed':bool(f.get('analyzed') and f.get('analysis_signature') == signature),
+                      'analysis_state': self.project.get('analysis_jobs', {}).get(f['id'], {}).get('state', 'pending'),
+                      'analysis_error': self.project.get('analysis_jobs', {}).get(f['id'], {}).get('error', '')}
                      for f in self.project['files']]
             clips = self.project['clips']
-            return {'busy':bool(self.worker and self.worker.is_alive()),'task':self.task,
+            jobs = self.project.get('analysis_jobs', {})
+            counts = {state: sum(1 for j in jobs.values() if j.get('state') == state)
+                      for state in ('pending', 'running', 'complete', 'failed')}
+            counts['total'] = len(files)
+            return {'analysis_queue': counts, 'busy':bool(self.worker and self.worker.is_alive()),'task':self.task,
                     'progress':round(self.progress,2),'message':self.message,'error':self.error,
                     'events':self.events[-70:],'source_dir':self.project.get('source_dir',''),
                     'work_dir':str(self.work_dir), 'files':files,'clips':clips,
@@ -398,7 +433,8 @@ class Studio:
                     self.log('Начато: '+name)
                     func(*args,**kwargs)
                     self.progress=1
-                    self.log('Завершено: '+name)
+                    if not self.error:
+                        self.log('Завершено: '+name)
                 except InterruptedError as e:
                     self.log(str(e))
                 except Exception as e:
@@ -418,19 +454,25 @@ class Studio:
         # Prevent scanning output renders as sources on later runs.
         if folder == self.work_dir or self.work_dir.is_relative_to(folder):
             raise ValueError('Папка проекта должна находиться вне папки исходников.')
+        if settings and 'cpu_threads' in settings:
+            count = settings['cpu_threads']
+            if type(count) is not int or not 1 <= count <= 8:
+                raise ValueError('Потоки CPU: выберите целое число от 1 до 8.')
         with self.lock:
             changed = str(folder) != self.project.get('source_dir')
             self.project['source_dir'] = str(folder)
             if changed:
                 self.project['files']=[]
                 self.project['clips']=[]
+                self.project['analysis_jobs']={}
             before_signature = self.analysis_signature()
             if settings:
-                self.project['settings'].update({k:v for k,v in settings.items() if k in ('vision','whisper','whisper_model','ollama_model')})
+                self.project['settings'].update({k:v for k,v in settings.items()
+                                                  if k in ('vision','whisper','whisper_model','ollama_model','cpu_threads')})
             if before_signature != self.analysis_signature():
-                # Analysis is settings-specific; retain original media, not stale scores.
                 for f in self.project['files']:
                     f['analyzed'] = False
+            self._sync_analysis_jobs()
             self._save()
 
     def reset_analysis(self):
@@ -440,6 +482,8 @@ class Studio:
             f.pop('analysis', None)
             f['analyzed']=False
         self.project['clips']=[]
+        self.project['analysis_jobs'] = {}
+        self._sync_analysis_jobs()
         self._save()
         self.log('Анализ сброшен. Исходные файлы не затронуты.')
 
@@ -498,69 +542,101 @@ class Studio:
             # Preserve user review/edit decisions for unchanged source recordings.
             self.project['clips']=[c for c in self.project['clips'] if c['media_id'] in valid_ids]
             removed_clips=before_clips-len(self.project['clips'])
+            self._sync_analysis_jobs()
             self._save()
         self.log(f'Найдено {len(items)} видео, {sum(x.get("size",0) for x in items)/1024**3:.1f} ГБ; '
                  f'сохранено {len(self.project["clips"])} фрагментов, удалено ссылок на изменённые/исчезнувшие: {removed_clips}')
 
     def analyze(self):
-        if not self.project['files']:
-            raise RuntimeError('Сначала запустите сканирование')
-        settings=self.project['settings']
-        signature=self.analysis_signature()
-        files=self.project['files']
-        if all(f.get('analyzed') and f.get('analysis_signature') == signature for f in files):
-            self.progress=1
-            self.log('Все записи уже проанализированы с текущими настройками.')
-            return
-        ffmpeg=locate_ffmpeg('ffmpeg')
-        if not ffmpeg:
-            raise RuntimeError('Не найден FFmpeg. См. УСТАНОВКА.txt')
-        use_whisper=bool(settings.get('whisper'))
-        model=None
-        if use_whisper:
-            if self.whisper_available():
-                self.log('Загрузка модели Whisper (при первом запуске может потребоваться Интернет)...')
-                from faster_whisper import WhisperModel
-                # CPU int8 is the most broadly compatible Windows default.
-                model=WhisperModel(settings.get('whisper_model','small'),device='cpu',compute_type='int8')
-            else:
-                self.log('Whisper не установлен: распознавание речи пропущено. Смотрите УСТАНОВКА.txt')
-        files=self.project['files']
-        for i,f in enumerate(files):
+        """Process the on-disk per-video queue; a crashed run resumes unfinished files."""
+        with self.lock:
+            self.error = ''
+            if not self.project['files']:
+                raise RuntimeError('Сначала запустите сканирование')
+            jobs = self._sync_analysis_jobs()
+            signature = self.analysis_signature()
+            files = list(self.project['files'])
+            todo = [f for f in files if jobs[f['id']]['state'] != 'complete']
+            if not todo:
+                self.progress=1
+                self.log('Все записи уже проанализированы с текущими настройками.')
+                return
+            if not locate_ffmpeg('ffmpeg'):
+                raise RuntimeError('Не найден FFmpeg. См. УСТАНОВКА.txt')
+            threads = int(self.project['settings'].get('cpu_threads', 2))
+            settings = self.project['settings'].copy()
+        model = None
+        if settings.get('whisper') and self.whisper_available():
+            self.log('Загрузка модели Whisper (при первом запуске может потребоваться Интернет)...')
+            from faster_whisper import WhisperModel
+            model = WhisperModel(settings.get('whisper_model', 'small'), device='cpu',
+                                 compute_type='int8', cpu_threads=threads, num_workers=1)
+        elif settings.get('whisper'):
+            self.log('Whisper не установлен: распознавание речи пропущено. Смотрите УСТАНОВКА.txt')
+
+        failed = 0
+        total = len(todo)
+        for i, file in enumerate(todo):
             if self.stop.is_set():
-                raise InterruptedError('Обработка остановлена')
-            if f.get('analyzed') and f.get('analysis_signature') == signature:
-                self.progress=(i+1)/len(files)
-                continue
-            self.log(f'Анализ {i+1}/{len(files)}: {f["relative"]}')
-            audio = audio_envelope(f['path'],f['duration'],self.stop) if f.get('audio') else []
-            seg=[]
-            if model and f.get('audio'):
-                self.log('Распознаю речь: '+f['name'])
-                try:
-                    seg=transcribe(f['path'],model,self.stop)
-                except InterruptedError:
-                    raise
-                except Exception as exc:
-                    self.log('Whisper не смог распознать файл: '+str(exc)[:180])
-            motion=[]
-            if settings.get('vision'):
-                self.log('Анализ движения кадров: '+f['name'])
-                motion=motion_envelope(f['path'],self.stop)
-            if seg and settings.get('ollama_model'):
-                self.log('Контекстная оценка диалогов локальным Ollama')
-                try:
-                    ollama_rank(seg,settings['ollama_model'],self.stop)
-                except InterruptedError:
-                    raise
-                except Exception as exc:
-                    self.log('Ollama недоступна (использую эвристику): '+str(exc)[:180])
-            f['analysis']={'audio_levels':audio,'motion_levels':motion,'transcript':seg}
-            f['analyzed']=True
-            f['analysis_signature']=signature
-            self.progress=(i+1)/len(files)
-            self._save()
-            self.log(f'Готово: {f["name"]}; реплик {len(seg)}; аудио-окон {len(audio)}')
+                raise InterruptedError('Обработка остановлена; очередь сохранена')
+            mid = file['id']
+            job = jobs[mid]
+            with self.lock:
+                job['state'] = 'running'
+                job['attempts'] += 1
+                job['error'] = ''
+                self._save()
+            self.log(f'Анализ {i+1}/{total}: {file["relative"]} (CPU: {threads} потоков)')
+            try:
+                stat = Path(file['path']).stat()
+                if stat.st_size != file['size'] or ('mtime_ns' in file and stat.st_mtime_ns != file['mtime_ns']):
+                    raise RuntimeError('Исходный файл изменился. Повторно просканируйте библиотеку.')
+                audio = audio_envelope(file['path'], file['duration'], self.stop, threads=threads) if file.get('audio') else []
+                segments = []
+                if model and file.get('audio'):
+                    self.log('Распознаю речь: '+file['name'])
+                    segments = transcribe(file['path'], model, self.stop)
+                motion = []
+                if settings.get('vision'):
+                    self.log('Анализ движения кадров: '+file['name'])
+                    motion = motion_envelope(file['path'], self.stop, threads=threads)
+                if segments and settings.get('ollama_model'):
+                    self.log('Контекстная оценка диалогов локальным Ollama')
+                    try:
+                        ollama_rank(segments, settings['ollama_model'], self.stop)
+                    except InterruptedError:
+                        raise
+                    except Exception as exc:
+                        self.log('Ollama недоступна (использую эвристику): '+str(exc)[:180])
+                if self.stop.is_set():
+                    raise InterruptedError('Обработка остановлена; очередь сохранена')
+                with self.lock:
+                    file['analysis'] = {'audio_levels': audio, 'motion_levels': motion, 'transcript': segments}
+                    file['analyzed'] = True
+                    file['analysis_signature'] = signature
+                    job['state'] = 'complete'
+                    job['error'] = ''
+                    self._save()
+                self.log(f'Готово: {file["name"]}; реплик {len(segments)}; аудио-окон {len(audio)}')
+            except InterruptedError:
+                with self.lock:
+                    job['state'] = 'pending'
+                    self._save()
+                raise
+            except Exception as exc:
+                failed += 1
+                with self.lock:
+                    job['state'] = 'failed'
+                    job['error'] = str(exc)[:300]
+                    self._save()
+                self.log(f'Не удалось обработать {file["name"]}: {str(exc)[:200]}')
+            finally:
+                self.progress = (i+1)/total
+        if failed:
+            self.error = f'Не удалось обработать {failed} из {total} записей. Нажмите «Продолжить анализ» для повторной попытки.'
+            self.log(self.error)
+        else:
+            self.log(f'Очередь обработана: {total} записей. Прогресс сохранён.')
 
     def plan(self,target_minutes=12):
         files=self.project['files']
