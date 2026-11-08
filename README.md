@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.3**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified.
+> **Alpha 0.1.4**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified.
 
 ## What it can do today
 
@@ -25,7 +25,7 @@
 | AI | Optional **local** Ollama for scoring dialogue (quality is experimental) |
 | Review | Browser preview, enable/disable, adjust clips and mark subtle zooms |
 | Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT |
-| Processing | Localhost server; preserves source files; resumable per-file analysis |
+| Processing | Localhost server; preserves source files; incremental rescans, stable media IDs and resumable per-file analysis |
 
 **Not yet implemented:** automatic meme selection, precise semantic scene understanding, motion tracking, elaborate keyframed effects, professional audio mixing, a standalone `.exe` installer, or a multi-track timeline.
 
@@ -37,6 +37,8 @@
 4. Optional: run `INSTALL_AI_WINDOWS.bat` for `faster-whisper` speech recognition. Skip if already installed under Python 3.12.
 5. Run `START_WINDOWS.bat`; open <http://127.0.0.1:8765> if the browser does not start.
 6. Select the source footage folder → **Scan** → **Analyze** → **Create selection** → review clips → **Export MP4**.
+
+In v0.1.4, rescanning an unchanged folder keeps previously selected clips and their edits. Changed or removed source files invalidate only their own clips; changed AI settings trigger reanalysis. Files analyzed before v0.1.4 will require one cache refresh because the old version did not record analysis settings.
 
 The first Whisper transcription may download model weights from the Internet. Afterwards the model can run locally. For dialogue scoring you can optionally install [Ollama](https://ollama.com/) and download a model; it is **not required**.
 
@@ -76,4 +78,4 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.3-alpha.
+**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.4-alpha.

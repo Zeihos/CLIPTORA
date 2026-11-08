@@ -317,7 +317,7 @@ class Studio:
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.3','source_dir':'','files':[],'clips':[],
+        return {'version':'0.1.4','source_dir':'','files':[],'clips':[],
                 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':''},'last_output':''}
 
@@ -333,9 +333,32 @@ class Studio:
             self.events.append(f'[{datetime.datetime.now():%H:%M:%S}] {msg}')
             self.events = self.events[-160:]
 
+    def analysis_signature(self):
+        """Fingerprint settings to avoid accidentally reusing stale AI results.
+
+        When Whisper is installed later, its availability changes the signature
+        so an audio-only fallback is not mistaken for a completed transcript.
+        """
+        s = self.project.get('settings', {})
+        use_whisper = bool(s.get('whisper'))
+        return json.dumps({
+            'vision': bool(s.get('vision')),
+            'whisper': use_whisper,
+            'whisper_ready': self.whisper_available() if use_whisper else False,
+            'whisper_model': str(s.get('whisper_model', 'small')) if use_whisper else '',
+            'ollama_model': str(s.get('ollama_model', '')) if use_whisper else '',
+        }, sort_keys=True, ensure_ascii=False)
+
+    def _current_analysis(self, file):
+        return bool(file.get('analyzed') and
+                    file.get('analysis_signature') == self.analysis_signature())
+
     def status(self):
         with self.lock:
-            files = [{k:v for k,v in f.items() if k != 'analysis'} for f in self.project['files']]
+            signature = self.analysis_signature()
+            files = [{**{k:v for k,v in f.items() if k != 'analysis'},
+                      'analyzed':bool(f.get('analyzed') and f.get('analysis_signature') == signature)}
+                     for f in self.project['files']]
             clips = self.project['clips']
             return {'busy':bool(self.worker and self.worker.is_alive()),'task':self.task,
                     'progress':round(self.progress,2),'message':self.message,'error':self.error,
@@ -396,8 +419,13 @@ class Studio:
             if changed:
                 self.project['files']=[]
                 self.project['clips']=[]
+            before_signature = self.analysis_signature()
             if settings:
                 self.project['settings'].update({k:v for k,v in settings.items() if k in ('vision','whisper','whisper_model','ollama_model')})
+            if before_signature != self.analysis_signature():
+                # Analysis is settings-specific; retain original media, not stale scores.
+                for f in self.project['files']:
+                    f['analyzed'] = False
             self._save()
 
     def reset_analysis(self):
@@ -419,6 +447,10 @@ class Studio:
             raise RuntimeError('Сначала укажите папку с видео.')
         items=[]
         old = {f['path']:f for f in self.project['files']}
+        # Do not reuse IDs: reviewed clips refer to these IDs between scans.
+        known_numbers = [int(f['id'][1:]) for f in old.values()
+                         if re.fullmatch(r'm[0-9]+', str(f.get('id', '')))]
+        next_id = max(known_numbers, default=-1) + 1
         count=0
         for dirpath, dirs, filenames in os.walk(root, followlinks=False):
             if self.stop.is_set():
@@ -436,15 +468,15 @@ class Studio:
                         continue
                     prev=old.get(str(path))
                     if prev and prev.get('size')==info.st_size and prev.get('mtime')==info.st_mtime:
-                        item=prev
+                        item=prev.copy()
                     else:
                         details=probe(path)
                         if details['width'] <= 0 or details['duration'] <= 0:
                             continue
-                        item={'id':f'm{count:06d}','name':path.name,'path':str(path),
+                        item={'id':f'm{next_id:06d}','name':path.name,'path':str(path),
                               'relative':str(path.relative_to(root)), 'size':info.st_size,
                               'mtime':info.st_mtime,**details,'analyzed':False}
-                    item['id']=f'm{count:06d}'
+                        next_id += 1
                     items.append(item)
                     count+=1
                     if count % 20==0:
@@ -452,18 +484,27 @@ class Studio:
                 except Exception as exc:
                     self.log(f'Пропущено {name}: {exc}')
         items.sort(key=lambda x: (x.get('mtime',0),x['path']))
-        for i,f in enumerate(items):
-            f['id']=f'm{i:06d}'
         with self.lock:
+            valid_ids={f['id'] for f in items}
+            before_clips=len(self.project['clips'])
             self.project['files']=items
-            self.project['clips']=[]
+            # Preserve user review/edit decisions for unchanged source recordings.
+            self.project['clips']=[c for c in self.project['clips'] if c['media_id'] in valid_ids]
+            removed_clips=before_clips-len(self.project['clips'])
             self._save()
-        self.log(f'Найдено {len(items)} видео, {sum(x.get("size",0) for x in items)/1024**3:.1f} ГБ')
+        self.log(f'Найдено {len(items)} видео, {sum(x.get("size",0) for x in items)/1024**3:.1f} ГБ; '
+                 f'сохранено {len(self.project["clips"])} фрагментов, удалено ссылок на изменённые/исчезнувшие: {removed_clips}')
 
     def analyze(self):
         if not self.project['files']:
             raise RuntimeError('Сначала запустите сканирование')
         settings=self.project['settings']
+        signature=self.analysis_signature()
+        files=self.project['files']
+        if all(f.get('analyzed') and f.get('analysis_signature') == signature for f in files):
+            self.progress=1
+            self.log('Все записи уже проанализированы с текущими настройками.')
+            return
         ffmpeg=locate_ffmpeg('ffmpeg')
         if not ffmpeg:
             raise RuntimeError('Не найден FFmpeg. См. УСТАНОВКА.txt')
@@ -481,7 +522,7 @@ class Studio:
         for i,f in enumerate(files):
             if self.stop.is_set():
                 raise InterruptedError('Обработка остановлена')
-            if f.get('analyzed'):
+            if f.get('analyzed') and f.get('analysis_signature') == signature:
                 self.progress=(i+1)/len(files)
                 continue
             self.log(f'Анализ {i+1}/{len(files)}: {f["relative"]}')
@@ -509,18 +550,19 @@ class Studio:
                     self.log('Ollama недоступна (использую эвристику): '+str(exc)[:180])
             f['analysis']={'audio_levels':audio,'motion_levels':motion,'transcript':seg}
             f['analyzed']=True
+            f['analysis_signature']=signature
             self.progress=(i+1)/len(files)
             self._save()
             self.log(f'Готово: {f["name"]}; реплик {len(seg)}; аудио-окон {len(audio)}')
 
     def plan(self,target_minutes=12):
         files=self.project['files']
-        if not files or not any(f.get('analyzed') for f in files):
-            raise ValueError('Сначала выполните анализ видео')
+        if not files or not any(self._current_analysis(f) for f in files):
+            raise ValueError('Сначала выполните анализ видео с текущими настройками')
         target_seconds=max(30,min(2*3600,int(float(target_minutes)*60)))
         all_candidates=[]
         for f in files:
-            if not f.get('analyzed'):
+            if not self._current_analysis(f):
                 continue
             for c in generate_candidates(f):
                 c['media_id']=f['id']

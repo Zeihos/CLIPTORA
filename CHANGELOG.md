@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4-alpha — 2026-11-08
+
+- Preserve media IDs, cached analysis and manually reviewed clips across rescans when source recordings are unchanged.
+- Replace only the changed source entries and discard only references to changed or removed recordings.
+- Reanalyze when speech/vision/Ollama settings change or when Whisper becomes available after installation.
+- Skip repeat analysis when every source has a current cache signature.
+- Add regression tests for rescan preservation, changed recordings and resumable analysis.
+- Existing 0.1.3 analyzed files without a settings signature are safely treated as needing one analysis pass.
+
 ## 0.1.3-alpha — 2026-11-08
 
 - Renamed the application to **CLIPTORA** in the browser UI, window title, launcher scripts and export filenames.
