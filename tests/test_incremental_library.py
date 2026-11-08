@@ -44,7 +44,7 @@ class IncrementalLibraryTests(unittest.TestCase):
         self.assertEqual(retained['analysis'], original['analysis'])
         self.assertEqual(self.app.project['clips'][0]['id'], chosen['id'])
         self.assertEqual(self.app.project['clips'][0]['media_id'], original['id'])
-        self.assertNotEqual(next(x for x in self.app.project['files'] if x['path'] == str(added))['id'], original['id'])
+        self.assertNotEqual(next(x for x in self.app.project['files'] if Path(x['path']).resolve() == added.resolve())['id'], original['id'])
 
     def test_changed_source_invalidates_only_its_old_clips(self):
         b = self.source / 'b.mp4'
