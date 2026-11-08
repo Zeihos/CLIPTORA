@@ -36,7 +36,7 @@ class ScannerBridgeTests(unittest.TestCase):
         with patch('scanner_bridge.locate_scanner', return_value=None):
             files, backend = scanner_bridge.discover(self.root, self.stop)
         self.assertEqual(backend, 'python')
-        self.assertEqual({x['path'] for x in files}, {str(self.a), str(self.b)})
+        self.assertEqual({x['path'] for x in files}, {str(self.a.resolve()), str(self.b.resolve())})
         for item in files:
             st = Path(item['path']).stat()
             self.assertEqual(item['size'], st.st_size)
@@ -48,7 +48,7 @@ class ScannerBridgeTests(unittest.TestCase):
              patch('scanner_bridge._scan_rust', side_effect=RuntimeError('broken scanner')):
             files, backend = scanner_bridge.discover(self.root, self.stop, events.append)
         self.assertEqual(backend, 'python')
-        self.assertEqual({x['path'] for x in files}, {str(self.a), str(self.b)})
+        self.assertEqual({x['path'] for x in files}, {str(self.a.resolve()), str(self.b.resolve())})
         self.assertTrue(any('Rust' in x and 'Python' in x for x in events))
 
     def test_rust_success_is_selected(self):
@@ -92,7 +92,7 @@ class StudioRustIntegrationTests(unittest.TestCase):
             initial = app.project['files'][0]
             clip = app.add_clip(initial['id'], 1, 8)
             stat = video.stat()
-            metadata = {'path': str(video), 'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns}
+            metadata = {'path': str(video.resolve()), 'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns}
             with patch('engine.discover', return_value=([metadata], 'rust')), \
                  patch('engine.probe', side_effect=AssertionError('unchanged file probed')):
                 app.scan()
@@ -121,7 +121,7 @@ class StudioRustIntegrationTests(unittest.TestCase):
             old['mtime'] = media.stat().st_mtime  # exactly the prior release
             old.pop('mtime_ns', None)
             clip = app.add_clip(old_id, 1, 4)
-            metadata = {'path': str(media), 'size': media.stat().st_size, 'mtime_ns': media.stat().st_mtime_ns}
+            metadata = {'path': str(media.resolve()), 'size': media.stat().st_size, 'mtime_ns': media.stat().st_mtime_ns}
             with patch('engine.discover', return_value=([metadata], 'rust')), \
                  patch('engine.probe', side_effect=AssertionError('must not probe unchanged legacy file')):
                 app.scan()
