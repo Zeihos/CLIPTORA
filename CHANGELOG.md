@@ -1,3 +1,12 @@
+# 0.1.8 Alpha — dialogue context and natural endings
+
+- Add a deterministic transcript-context planner. It keeps preceding setup lines, a ranked/reaction-adjacent sentence, its reply and an ending beat rather than simply adding a fixed 3 seconds around speech groups.
+- Use existing Ollama humor scores (when configured) and corroborated audio peaks as ranking hints, not reliable joke or event recognition.
+- Clamp proposed dialogue clips to 36 seconds and skip malformed/empty ASR segments. Keep far-apart scenes separate.
+- Show context reasons alongside the original sound/motion selection reasons.
+- Build new selections directly from saved 0.1.7 analysis: no reanalysis is required, but manually reviewed drafts must be backed up before using Create selection.
+- Add regression checks for setup, payoff, response, reaction tails, boundaries, long dialogs and engine integration.
+
 # 0.1.7 Alpha — explainable reaction highlights
 
 - Rank short sound changes against the nearby six seconds instead of just selecting loud parts.

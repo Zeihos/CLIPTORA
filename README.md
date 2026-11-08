@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.7**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Alpha 0.1.8**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
 ## What it can do today
 
@@ -97,7 +97,7 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.7-alpha.
+**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.8-alpha.
 
 ## CLIPTORA 0.1.6 queue troubleshooting
 
@@ -112,3 +112,9 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security 
 Use **Scan → Analyze → Create selection**. For already-analyzed unchanged files, use **Create selection** again; no new speech model or reanalysis is required. This replaces the draft selection, so back up or export your manually reviewed draft before rebuilding it. Upgrading alone does not discard saved edits.
 
 Suggested clips can now show **Основание** (why): an acoustic spike compared with recent sound, nearby speech, and/or motion. These are statistical clues, **not** verified jokes, emotions, speakers or game events. The 0–100 score ranks candidates and is not a calibrated probability. Recordings remain local.
+
+## CLIPTORA 0.1.8 — speech context windows
+
+The **Create selection** action now proposes bounded dialogue windows (at most 36 seconds) which try to preserve an earlier setup, a plausible punchline/reaction and a short follow-up/beat. Signals come from existing Whisper transcript timestamps, optional local Ollama heuristic ratings and the previously recorded audio-reaction metadata; the app **cannot reliably identify actual jokes or speakers**. Results remain reviewable, editable suggestions, not guaranteed funny clips.
+
+The new context algorithm reuses cached analysis from 0.1.7: **you do not need to rescan or retranscribe** an unchanged recording. **Creating a new selection replaces the entire current draft** (including manually reviewed clips), so keep a backup of project.json or export your draft first. Just upgrading preserves the project without rewriting the draft.

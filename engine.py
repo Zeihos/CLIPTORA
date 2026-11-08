@@ -20,6 +20,7 @@ from pathlib import Path
 
 from scanner_bridge import discover, locate_scanner
 from highlight_signals import detect_audio_reactions
+from dialogue_context import build_dialogue_windows
 
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
@@ -237,36 +238,20 @@ def generate_candidates(file):
     segs = a.get('transcript', [])
     reactions = detect_audio_reactions(levels, d, segs, motion)
     candidates = []
-    if segs:
-        group, groups = [], []
-        for segment in segs:
-            if group and (segment['start'] - group[-1]['end'] > 5.5 or
-                          segment['end'] - group[0]['start'] > 33):
-                groups.append(group)
-                group = []
-            group.append(segment)
-        if group:
-            groups.append(group)
-        for group in groups:
-            start, end = max(0, group[0]['start'] - 3.0), min(d, group[-1]['end'] + 3.0)
-            if end - start < 3:
-                end = min(d, start + 3)
-            if end <= start:
-                continue
-            label = ' '.join(s['text'] for s in group)
-            humor = max(s.get('humor', 0) for s in group)
-            matching = [hit for hit in reactions if start <= hit['time'] <= end]
-            reaction_boost = min(14, max((hit['strength']*14 for hit in matching), default=0))
-            score = min(100, clip_score(start, end, levels, motion, label, humor) + reaction_boost)
-            reasons = ['диалог']
-            if humor >= 3:
-                reasons.append('контекстная оценка речи')
-            if matching:
-                reasons.extend(r for r in max(matching, key=lambda h: h['strength'])['reasons']
-                               if r not in reasons)
-            candidates.append({'start': round(start, 2), 'end': round(end, 2),
-                               'score': round(score, 1), 'label': label[:160],
-                               'type': 'dialogue', 'reasons': reasons})
+    for window in build_dialogue_windows(segs, d, reactions):
+        start, end = window['start'], window['end']
+        label, humor = window['text'], window['humor']
+        matching = [hit for hit in reactions if start <= hit['time'] <= end]
+        reaction_boost = min(14, max((hit['strength']*14 for hit in matching), default=0))
+        score = min(100, clip_score(start, end, levels, motion, label, humor) + reaction_boost)
+        reasons = ['диалог', *window['reasons']]
+        if humor >= 3:
+            reasons.append('контекстная оценка речи')
+        if matching:
+            reasons.extend(r for r in max(matching, key=lambda h: h['strength'])['reasons']
+                           if r not in reasons)
+        candidates.append({'start': start, 'end': end, 'score': round(score, 1),
+                           'label': label[:160], 'type': 'dialogue', 'reasons': reasons})
     # Local relative acoustic changes; constant loud music alone is not a reaction.
     for hit in sorted(reactions, key=lambda x: -x['strength']):
         mid = hit['time']
@@ -329,12 +314,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.7'
+        self.project['version'] = '0.1.8'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.7','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
+        return {'version':'0.1.8','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
                 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 

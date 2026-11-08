@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.7-alpha — explainable relative audio reactions and speech/motion correlation.
+0.1.8-alpha — dialogue setup, payoff and reaction-aware selection.
