@@ -76,7 +76,8 @@ class QueueTests(unittest.TestCase):
         files = {f['name']:f for f in self.app.status()['files']}
         self.assertEqual(files['a.mp4']['analysis_state'], 'failed')
         self.assertIn('просканируйте',files['a.mp4']['analysis_error'])
-        self.assertEqual(calls, [str(self.b)])
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(Path(calls[0]).resolve(), self.b.resolve())
 
 if __name__ == '__main__':
     unittest.main()
