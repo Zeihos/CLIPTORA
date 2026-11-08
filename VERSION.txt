@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.10-alpha — compare three non-destructive plans with reversible draft history.
+0.1.11-alpha — optional per-clip audio normalization and short soft cuts; safer MP4 export.

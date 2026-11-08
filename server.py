@@ -11,13 +11,14 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 from engine import Studio
+from export_quality import validate_export_quality
 
 HERE=Path(__file__).resolve().parent
 studio=None
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version='CLIPTORA/0.1.10'
+    server_version='CLIPTORA/0.1.11'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/status'):
@@ -125,7 +126,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path=='/api/clip':
                 studio.edit_clip(payload.pop('id'),**payload)
             elif path=='/api/render':
-                studio.schedule('Экспорт MP4',studio.render,payload.get('height',720),payload.get('captions',False))
+                normalize_audio, fade_ms = validate_export_quality(payload.get('normalize_audio',False),payload.get('fade_ms',0))
+                studio.schedule('Экспорт MP4',studio.render,payload.get('height',720),payload.get('captions',False),
+                                normalize_audio, fade_ms)
             elif path=='/api/stop':
                 studio.stop.set()
             elif path=='/api/output':

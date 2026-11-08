@@ -25,6 +25,7 @@ from highlight_signals import detect_audio_reactions
 from dialogue_context import build_dialogue_windows
 from candidate_selection import select_best_clips
 from plan_variants import create_variants
+from export_quality import make_export_filters, validate_export_quality
 
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
@@ -319,12 +320,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.10'
+        self.project['version'] = '0.1.11'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.10','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
+        return {'version':'0.1.11','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
                 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
@@ -822,8 +823,9 @@ class Studio:
             return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
         return ''.join(f'{i}\n{stamp(a)} --> {stamp(b)}\n{text}\n\n' for i,(a,b,text) in enumerate(result,1))
 
-    def render(self, height=720, burn_subtitles=False):
+    def render(self, height=720, burn_subtitles=False, normalize_audio=False, fade_ms=0):
         # Freeze edits during export so UI changes cannot alter an in-flight render.
+        normalize_audio, fade_ms = validate_export_quality(normalize_audio, fade_ms)
         selected=[dict(c) for c in self.project['clips'] if c.get('enabled')]
         if not selected:
             raise RuntimeError('Все фрагменты исключены. Нечего экспортировать')
@@ -836,8 +838,9 @@ class Studio:
         width=int(height*16/9)//2*2
         runs=self.work_dir/'renders'
         runs.mkdir(exist_ok=True)
-        now=datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        now=datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
         output=runs/f'CLIPTORA_{now}_{height}p.mp4'
+        pending_output=runs/f'.CLIPTORA_{now}_{height}p.partial.mp4'
         tmp_dir=self.work_dir/'cache'/now
         tmp_dir.mkdir(parents=True,exist_ok=True)
         map_files={f['id']:f for f in self.project['files']}
@@ -849,19 +852,14 @@ class Studio:
                 media=map_files[c['media_id']]
                 outfile=tmp_dir/f'part_{i:04}.mp4'
                 dur=c['end']-c['start']
-                vfilter=(f'scale={width}:{height}:force_original_aspect_ratio=increase,'
-                         f'crop={width}:{height},setsar=1,fps=30')
-                if c.get('zoom'):
-                    scale_w=int(width*1.08)//2*2
-                    scale_h=int(height*1.08)//2*2
-                    vfilter=(f'scale={scale_w}:{scale_h}:force_original_aspect_ratio=increase,'
-                             f'crop={width}:{height},setsar=1,fps=30')
+                vfilter, afilter = make_export_filters(dur, width, height,
+                    zoom=bool(c.get('zoom')), normalize_audio=normalize_audio, fade_ms=fade_ms)
                 cmd=[ffmpeg,'-y','-v','error','-nostdin','-ss',str(c['start']),
                      '-i',media['path']]
                 if not media.get('audio'):
                     cmd+=['-f','lavfi','-i','anullsrc=r=48000:cl=stereo']
                 cmd+=['-t',str(dur),'-map','0:v:0','-map',('0:a:0' if media.get('audio') else '1:a:0'),
-                      '-vf',vfilter,'-af','aresample=48000',
+                      '-vf',vfilter,'-af',afilter,
                       '-c:v','libx264','-preset','veryfast','-crf','22',
                       '-pix_fmt','yuv420p','-r','30','-c:a','aac','-b:a','160k',
                       '-ar','48000','-ac','2','-movflags','+faststart',str(outfile)]
@@ -872,19 +870,26 @@ class Studio:
                 self.progress=(i+1)/(len(selected)+1)
                 self.log(f'Клип {i+1}/{len(selected)}: {media["name"]}')
             # Concat demuxer avoids holding all originals or frames in RAM.
+            if self.stop.is_set():
+                raise InterruptedError('Экспорт остановлен')
             concat=tmp_dir/'concat.txt'
             def ffconcat_path(x):
                 return str(x.resolve()).replace('\\','/').replace("'", "'\\''")
             concat.write_text(''.join(f"file '{ffconcat_path(x)}'\n" for x in joined),encoding='utf-8')
             p=process([ffmpeg,'-y','-v','error','-nostdin','-f','concat','-safe','0',
-                       '-i',str(concat),'-c','copy','-movflags','+faststart',str(output)],timeout=3600)
+                       '-i',str(concat),'-c','copy','-movflags','+faststart',str(pending_output)],timeout=3600)
             if p.returncode:
                 raise RuntimeError('Ошибка объединения: '+p.stderr.decode('utf-8','replace')[-500:])
+            # Publish only finished MP4s: a failed render cannot replace a previous result.
+            if self.stop.is_set():
+                raise InterruptedError('Экспорт остановлен')
+            os.replace(pending_output, output)
             srt=output.with_suffix('.srt')
             srt.write_text(self.srt_content(selected),encoding='utf-8-sig')
             manifest=output.with_suffix('.json')
             manifest.write_text(json.dumps({'source_dir':self.project['source_dir'],
-                         'clips':selected,'rendered_to':str(output)},ensure_ascii=False,indent=2),encoding='utf-8')
+                         'clips':selected,'rendered_to':str(output),
+                         'export_quality': {'normalize_audio':normalize_audio, 'fade_ms':fade_ms}},ensure_ascii=False,indent=2),encoding='utf-8')
             # Burn only if there are ASR subtitles and user explicitly requested it.
             if burn_subtitles and srt.stat().st_size>10:
                 subbed=output.with_name(output.stem+'_captions.mp4')
@@ -902,4 +907,5 @@ class Studio:
             return output
         finally:
             # Cache cleanup is best-effort and never touches sources.
+            pending_output.unlink(missing_ok=True)
             shutil.rmtree(tmp_dir,ignore_errors=True)

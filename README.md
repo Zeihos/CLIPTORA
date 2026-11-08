@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.10**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Alpha 0.1.11**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
 ## What it can do today
 
@@ -24,7 +24,7 @@
 | Context | Keep surrounding dialogue, rank candidates by reviewable context signals and manually edit clip start/end |
 | AI | Optional **local** Ollama for scoring dialogue (quality is experimental) |
 | Review | Browser preview, human-readable selection reasons, enable/disable, adjust clips and mark subtle zooms |
-| Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT |
+| Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT; optional per-clip loudness normalization and short fade-through-black transitions |
 | Processing | Localhost server; preserves source files; incremental rescans, stable media IDs and resumable per-file analysis |
 | Queue | Persisted per-video progress; resume after restart; file-level errors and retry |
 | Resource controls | Sequential video analysis and adjustable FFmpeg/Whisper CPU threads (1–8; default 2) |
@@ -98,7 +98,7 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.10-alpha.
+**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.11-alpha.
 
 ## Compare three edit drafts safely (v0.1.10)
 
@@ -138,3 +138,11 @@ After the existing **Scan → Analyze** steps, press **Create selection** to reb
 The interface now shows the original raw heuristic score through the ranking badge tooltip, the adjusted selection priority, the reasons for its adjustment and a summary of overlaps / duplicate suggestions skipped during the selection pass. **These signals do not prove that two clips contain the same visual event, or that a joke is funny.** If auto-transcription repeats or changes words, some repeated scenes may still pass or distinct dialogue may be filtered. Please review before exporting.
 
 The `selection_summary` in local `project.json` describes the **last automatic shortlist** only. Subsequent manual clip edits do not recompute this history. Rebuilding the draft replaces previous manual edits as in earlier versions; make a backup or export before pressing Create selection again. Upgrading the application itself does not rebuild the draft or discard cached analysis.
+
+## Export quality controls (v0.1.11)
+
+Under **Export**, optional **Normalize volume** runs FFmpeg's single-pass `loudnorm=I=-16:TP=-1.5:LRA=11` on each selected scene independently, followed by 48 kHz stereo resampling. This is an approximation, not guaranteed integrated loudness across a complete finished movie; very quiet clips may have background noise amplified. Leave it off when you prefer original dynamics. The program never modifies the source recordings.
+
+**Scene joins** can use hard cuts (default) or 150/300 ms **fade through black**. This is *not* an overlapping crossfade. Every segment retains its duration, so subtitle timestamps and montage timing do not change. Very short segments receive proportionally shorter fades to avoid all-black clips. Hard cuts are usually better for fast comedic/action pacing.
+
+The MP4 is first written to a hidden `.partial.mp4` in the render directory, and published as a final `.mp4` only when FFmpeg successfully finishes concatenating the scene files. A failed export cleans its temporary files and does not overwrite `last_output` or previous completed renders. Each render uses a microsecond timestamp to avoid accidental filename collisions. Export options are recorded in the sidecar JSON manifest. These safeguards do not ensure successful subtitle burn-in in all cases; a separate SRT remains available.

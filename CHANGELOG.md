@@ -1,3 +1,11 @@
+# 0.1.11 Alpha — export quality and failure safety (2026-11-09)
+
+- Add opt-in per-clip FFmpeg loudness normalization targeting -16 LUFS / -1.5 dBTP. Warn that single-pass processing may amplify quiet backgrounds and is not whole-program measurement.
+- Add optional 150/300 ms audio and video fade-through-black around cuts, without overlap or subtitle timeline shifts; shrink fades for very short clips. Existing hard cuts remain the default.
+- Write MP4 into `.partial.mp4` and atomically rename on completed concat. Remove staging file if rendering fails and retain previous successful export pointer.
+- Store export quality options in per-render JSON sidecar, and use collision-resistant output filenames.
+- Add unit and FFmpeg integration regression tests; no new Python dependencies.
+
 # 0.1.10 Alpha — reversible alternative plans (2026-11-09)
 
 - Preview three heuristic edit selections (balanced, dialogue-heavy, action-heavy) without changing the current manual draft.
