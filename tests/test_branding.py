@@ -31,7 +31,7 @@ class BrandingTests(unittest.TestCase):
     def test_new_user_gets_new_brand_data_directory(self):
         with tempfile.TemporaryDirectory() as tmp, patch('pathlib.Path.home', return_value=Path(tmp)):
             app=Studio()
-            self.assertEqual(app.work_dir, Path(tmp)/'CLIPTORA')
+            self.assertEqual(app.work_dir, (Path(tmp)/'CLIPTORA').resolve())
 
     def test_legacy_data_kept_accessible(self):
         with tempfile.TemporaryDirectory() as tmp, patch('pathlib.Path.home', return_value=Path(tmp)):
@@ -39,7 +39,7 @@ class BrandingTests(unittest.TestCase):
             legacy.mkdir()
             (legacy/'project.json').write_text('{"version":"0.1.0","source_dir":"","files":[],"clips":[],"settings":{},"last_output":""}',encoding='utf-8')
             app=Studio()
-            self.assertEqual(app.work_dir, legacy)
+            self.assertEqual(app.work_dir, legacy.resolve())
             self.assertTrue((legacy/'project.json').exists())
 
     def test_static_icon_is_served(self):
