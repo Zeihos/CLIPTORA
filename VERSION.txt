@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.5-alpha — optional Rust Core scanner and Python fallback.
+0.1.6-alpha — persistent per-file analysis queue, restart recovery, bounded CPU threads.

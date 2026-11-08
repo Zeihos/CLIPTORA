@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.5**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Alpha 0.1.6**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
 ## What it can do today
 
@@ -26,6 +26,8 @@
 | Review | Browser preview, enable/disable, adjust clips and mark subtle zooms |
 | Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT |
 | Processing | Localhost server; preserves source files; incremental rescans, stable media IDs and resumable per-file analysis |
+| Queue | Persisted per-video progress; resume after restart; file-level errors and retry |
+| Resource controls | Sequential video analysis and adjustable FFmpeg/Whisper CPU threads (1–8; default 2) |
 | Rust Core | Optional Rust video file inventory scanner with automatic Python fallback (Rust does **not** run speech AI or FFmpeg) |
 
 **Not yet implemented:** automatic meme selection, precise semantic scene understanding, motion tracking, elaborate keyframed effects, professional audio mixing, a standalone `.exe` installer, or a multi-track timeline.
@@ -39,6 +41,8 @@
 5. Run `START_WINDOWS.bat`; open <http://127.0.0.1:8765> if the browser does not start.
 6. **Optional Rust Core:** install the stable Rust toolchain using [rustup](https://rustup.rs/) and run `BUILD_RUST_WINDOWS.bat`. This builds a native scanner into `tools/cliptora-scanner.exe`. It is not needed for basic operation.
 7. Select the source footage folder → **Scan** → **Analyze** → **Create selection** → review clips → **Export MP4**.
+
+Since v0.1.6, analysis progress is saved after each file in `project.json`. If the app closes or Windows restarts, re-open the app and click **Analyze / Continue**; completed files are skipped. Failed videos remain visible and can be retried. CPU threads can be limited to avoid saturating your computer; this does **not** cap all OS memory usage.
 
 Since v0.1.4, rescanning an unchanged folder keeps previously selected clips and their edits. Changed or removed source files invalidate only their own clips; changed AI settings trigger reanalysis. Files analyzed before v0.1.4 will require one cache refresh because the old version did not record analysis settings.
 
@@ -94,3 +98,11 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
 **Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.5-alpha.
+
+## CLIPTORA 0.1.6 queue troubleshooting
+
+- Stopping or closing the application during a video does not keep partial transcription for that video; it is processed from the start on resume. Completed **other** videos remain finished.
+- A failed video is marked as failed. Other recordings still process. Press **Analyze / Continue** to retry failed files.
+- If a file was modified since scanning, rescan the footage directory before retrying analysis.
+- Thread control applies to FFmpeg decoding/filters and Whisper CPU inference; it cannot guarantee a fixed memory or CPU percentage. Queue runs one recording at a time.
+- Project metadata and queue are stored locally in `project.json`. Keep a backup of it when editing a large library.

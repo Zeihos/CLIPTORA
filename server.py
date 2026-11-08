@@ -17,7 +17,7 @@ studio=None
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version='CLIPTORA/0.1.4'
+    server_version='CLIPTORA/0.1.6'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/status'):

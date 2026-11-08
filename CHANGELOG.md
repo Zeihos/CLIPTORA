@@ -1,3 +1,13 @@
+# 0.1.6 Alpha — durable analysis queue
+
+- Persistent per-file analysis queue with `pending`, `running`, `complete` and `failed` states in local `project.json`.
+- Restart recovery: interrupted files are returned to pending; completed video analysis is reused.
+- Damaged video fails independently; remaining files keep processing. Clicking Analyze again retries incomplete files.
+- Configurable 1–8 CPU threads (default 2) for FFmpeg and faster-whisper, sequential processing to limit peak RAM.
+- Queue counters and per-file errors in the local browser UI.
+- Source file safety check before analyzing, requiring a rescan if it changed.
+- Keeps optional Rust scanner and existing v0.1.5 project files compatible.
+
 # Changelog
 
 ## 0.1.5-alpha — 2026-11-08
