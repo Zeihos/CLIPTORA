@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="CLIPTORA icon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1b2440"/><stop offset="1" stop-color="#0b101b"/></linearGradient>
+    <linearGradient id="shape" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5CE2EA"/><stop offset=".51" stop-color="#9485FF"/><stop offset="1" stop-color="#B6A3FF"/></linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="58" fill="url(#bg)"/>
+  <rect x="5" y="5" width="246" height="246" rx="54" fill="none" stroke="#4D5C84" stroke-opacity=".55" stroke-width="2"/>
+  <path d="M185 60 L158 89 Q145 80 128 80 C100 80 79 101 79 129 C79 157 100 178 128 178 Q147 178 161 165 L189 194 Q162 218 126 218 C76 218 39 180 39 129 C39 79 78 41 128 41 Q162 41 185 60Z" fill="url(#shape)"/>
+  <path d="M116 104 L173 128 L116 152Z" fill="#EDF5FF"/>
+  <rect x="185" y="110" width="32" height="10" rx="5" fill="#66D6E4" opacity=".95"/>
+  <rect x="185" y="135" width="24" height="10" rx="5" fill="#B4A0FF" opacity=".86"/>
+</svg>

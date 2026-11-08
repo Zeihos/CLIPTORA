@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="CLIPTORA AI video editor — project banner">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111B32"/><stop offset="1" stop-color="#080D18"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#65D8EC"/><stop offset="1" stop-color="#A593FF"/></linearGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse"><path d="M36 0H0V36" fill="none" stroke="#273B5B" stroke-opacity=".35"/></pattern>
+  </defs>
+  <rect width="1280" height="320" rx="26" fill="url(#bg)"/>
+  <rect width="1280" height="320" rx="26" fill="url(#grid)"/>
+  <path d="M50 260H1230" stroke="url(#accent)" stroke-width="2" opacity=".38"/>
+  <g transform="translate(61 73)"><rect width="173" height="173" rx="37" fill="#18253D" stroke="#3E5878"/>
+    <path d="M126 42L107 63Q98 57 87 57C67 57 53 72 53 89C53 108 67 123 87 123Q100 123 110 114L130 134Q111 151 86 151C49 151 26 123 26 89C26 52 52 28 87 28Q109 28 126 42Z" fill="url(#accent)"/>
+    <path d="M78 72 L117 89 L78 106Z" fill="#F5F8FF"/></g>
+  <text x="266" y="139" fill="#F4F7FF" font-family="Arial,Segoe UI,sans-serif" font-size="74" font-weight="800" letter-spacing="6">CLIPTORA</text>
+  <text x="272" y="188" fill="#97A9CB" font-family="Arial,Segoe UI,sans-serif" font-size="22" letter-spacing="2">LOCAL-FIRST AI VIDEO EDITOR</text>
+  <g transform="translate(855 94)">
+    <rect x="0" y="0" width="350" height="148" rx="18" fill="#111D30" stroke="#314B6B"/>
+    <g fill="#69D7EA" opacity=".87">
+    <rect x="24" y="54" width="7" height="36" rx="3"/><rect x="40" y="41" width="7" height="60" rx="3"/><rect x="56" y="65" width="7" height="19" rx="3"/><rect x="72" y="31" width="7" height="78" rx="3"/><rect x="88" y="47" width="7" height="49" rx="3"/><rect x="104" y="24" width="7" height="91" rx="3"/><rect x="120" y="57" width="7" height="31" rx="3"/><rect x="136" y="43" width="7" height="56" rx="3"/>
+    </g>
+    <g fill="#9687FD" opacity=".85"><rect x="170" y="78" width="29" height="41" rx="5"/><rect x="205" y="56" width="37" height="63" rx="5"/><rect x="248" y="34" width="29" height="85" rx="5"/><rect x="283" y="62" width="38" height="57" rx="5"/></g>
+    <path d="M20 122H330" stroke="#5F78A0" stroke-opacity=".4" stroke-width="2"/>
+  </g>
+  <text x="272" y="284" fill="#8499B6" font-family="Arial,Segoe UI,sans-serif" font-size="15">SCAN  /  ANALYZE  /  REVIEW  /  EXPORT</text>
+</svg>

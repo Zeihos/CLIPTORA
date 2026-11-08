@@ -1,0 +1,35 @@
+# Personal video libraries, temporary files and local analysis
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.mp3
+*.wav
+*.m4a
+*.srt
+*.ass
+*.log
+*.sqlite
+*.sqlite3
+*.db
+project.json
+renders/
+cache/
+models/
+output/
+
+# Machine-local settings, Python and IDE
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
