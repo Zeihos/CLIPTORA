@@ -1,3 +1,13 @@
+# 0.1.7 Alpha — explainable reaction highlights
+
+- Rank short sound changes against the nearby six seconds instead of just selecting loud parts.
+- Filter isolated one-bucket anomalies unless nearby speech or movement corroborates them.
+- Add transparent selection reasons to the clip-review interface.
+- Boost dialogue candidates when a nearby reaction supports the sequence.
+- Work on saved v0.1.6 analysis data without retranscription, cloud services or Rust changes.
+- Add regression tests for background music, artifacts, speech, motion, silence and boundary conditions.
+- Reminder: acoustic changes are not guaranteed funny moments or verified game events.
+
 # 0.1.6 Alpha — durable analysis queue
 
 - Persistent per-file analysis queue with `pending`, `running`, `complete` and `failed` states in local `project.json`.

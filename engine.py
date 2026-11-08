@@ -19,6 +19,7 @@ import urllib.request
 from pathlib import Path
 
 from scanner_bridge import discover, locate_scanner
+from highlight_signals import detect_audio_reactions
 
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
@@ -225,70 +226,81 @@ def clip_score(start, end, levels, motion, text='', humor=0):
 
 
 def generate_candidates(file):
+    """Explainable clip suggestions; audio and motion are *signals*, not event recognition.
+
+    Scores are heuristic ranking hints. Manual review remains necessary.
+    """
     d = file.get('duration', 0)
     a = file.get('analysis', {})
-    levels, motion, segs = a.get('audio_levels', []), a.get('motion_levels', []), a.get('transcript', [])
+    levels = a.get('audio_levels', [])
+    motion = a.get('motion_levels', [])
+    segs = a.get('transcript', [])
+    reactions = detect_audio_reactions(levels, d, segs, motion)
     candidates = []
     if segs:
-        # Groups preserve setup -> punchline rather than splitting every silence.
-        group = []
-        groups = []
-        for s in segs:
-            if group and (s['start'] - group[-1]['end'] > 5.5 or s['end'] - group[0]['start'] > 33):
+        group, groups = [], []
+        for segment in segs:
+            if group and (segment['start'] - group[-1]['end'] > 5.5 or
+                          segment['end'] - group[0]['start'] > 33):
                 groups.append(group)
                 group = []
-            group.append(s)
+            group.append(segment)
         if group:
             groups.append(group)
         for group in groups:
             start, end = max(0, group[0]['start'] - 3.0), min(d, group[-1]['end'] + 3.0)
-            if end-start < 3:
-                end = min(d, start+3)
-            label = ' '.join(s['text'] for s in group)
-            bonus = max(s.get('humor', 0) for s in group)
-            score = clip_score(start,end,levels,motion,label,bonus)
-            candidates.append({'start': round(start,2), 'end':round(end,2), 'score':score,
-                               'label':label[:160], 'type':'dialogue'})
-    # Acoustic peaks produce additional candidates for wordless gameplay highlights.
-    if levels:
-        floor = _percentile(levels, 0.65)
-        threshold = max(0.022, _percentile(levels, 0.9), floor * 2.2)
-        scored = []
-        for i in range(4, len(levels)-4):
-            if levels[i] > threshold and levels[i] >= max(levels[i-4:i+5]):
-                scored.append((levels[i], i*.5))
-        scored.sort(reverse=True)
-        chosen = []
-        for peak, mid in scored:
-            if all(abs(mid-prev)>8 for prev in chosen):
-                chosen.append(mid)
-            if len(chosen) >= max(12, int(d//35)):
-                break
-        for mid in chosen:
-            start, end = max(0, mid-4.5), min(d, mid+6.5)
-            if any(max(0, min(end,c['end'])-max(start,c['start'])) > 0.45*(end-start) for c in candidates):
+            if end - start < 3:
+                end = min(d, start + 3)
+            if end <= start:
                 continue
-            candidates.append({'start':round(start,2), 'end':round(end,2),
-                               'score':clip_score(start,end,levels,motion),
-                               'label':'Активный игровой момент (проверь вручную)', 'type':'action'})
-    # Wordless reactions/actions: optional visual activity peaks.
+            label = ' '.join(s['text'] for s in group)
+            humor = max(s.get('humor', 0) for s in group)
+            matching = [hit for hit in reactions if start <= hit['time'] <= end]
+            reaction_boost = min(14, max((hit['strength']*14 for hit in matching), default=0))
+            score = min(100, clip_score(start, end, levels, motion, label, humor) + reaction_boost)
+            reasons = ['диалог']
+            if humor >= 3:
+                reasons.append('контекстная оценка речи')
+            if matching:
+                reasons.extend(r for r in max(matching, key=lambda h: h['strength'])['reasons']
+                               if r not in reasons)
+            candidates.append({'start': round(start, 2), 'end': round(end, 2),
+                               'score': round(score, 1), 'label': label[:160],
+                               'type': 'dialogue', 'reasons': reasons})
+    # Local relative acoustic changes; constant loud music alone is not a reaction.
+    for hit in sorted(reactions, key=lambda x: -x['strength']):
+        mid = hit['time']
+        start, end = max(0, mid - 4.5), min(d, mid + 6.5)
+        if end-start < 3:
+            continue
+        if any(max(0, min(end,c['end'])-max(start,c['start'])) > .45*(end-start)
+               for c in candidates):
+            continue
+        score = min(100, clip_score(start, end, levels, motion) + hit['strength']*14)
+        candidates.append({'start': round(start, 2), 'end': round(end, 2),
+                           'score': round(score, 1),
+                           'label': 'Резкая звуковая реакция (проверь вручную)',
+                           'type': 'reaction', 'reasons': hit['reasons']})
     if motion:
-        limit=max(0.022, _percentile(motion, 0.88))
-        ranked=sorted([(v, i*2.0) for i,v in enumerate(motion) if v>=limit],reverse=True)
-        hits=[]
+        limit = max(0.022, _percentile(motion, .88))
+        ranked = sorted([(v, i*2.) for i,v in enumerate(motion) if v >= limit], reverse=True)
+        hits = []
         for val, t in ranked:
-            if all(abs(t-x)>10 for x in hits):
+            if all(abs(t-x) > 10 for x in hits):
                 hits.append(t)
-            if len(hits)>=max(10,int(d//60)):
+            if len(hits) >= max(10, int(d//60)):
                 break
         for t in hits:
-            start, end=max(0,t-4),min(d,t+8)
-            if end-start<3 or any(max(0,min(end,c['end'])-max(start,c['start'])) > .45*(end-start) for c in candidates):
+            start, end = max(0, t-4), min(d, t+8)
+            if end-start < 3 or any(max(0, min(end,c['end'])-max(start,c['start'])) > .45*(end-start)
+                                    for c in candidates):
                 continue
-            candidates.append({'start':round(start,2), 'end':round(end,2),
-                               'score':clip_score(start,end,levels,motion),
-                               'label':'Визуально активный игровой момент (проверь)', 'type':'motion'})
+            candidates.append({'start': round(start, 2), 'end': round(end, 2),
+                               'score': clip_score(start, end, levels, motion),
+                               'label': 'Визуально активный игровой момент (проверь)',
+                               'type': 'motion', 'reasons': ['движение в кадре']})
     return candidates
+
 
 
 class Studio:
@@ -317,12 +329,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.6'
+        self.project['version'] = '0.1.7'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.6','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
+        return {'version':'0.1.7','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
                 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 

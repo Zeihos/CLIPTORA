@@ -13,17 +13,17 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.6**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Alpha 0.1.7**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
 ## What it can do today
 
 | Area | Supported in the alpha |
 | --- | --- |
 | Library | Recursively scan a user-selected folder of videos |
-| Analysis | Audio peaks and optional visual motion; optional local speech recognition via `faster-whisper` |
+| Analysis | Relative audio reaction peaks and optional visual motion; optional local speech recognition via `faster-whisper` |
 | Context | Keep surrounding dialogue and manually edit clip start/end |
 | AI | Optional **local** Ollama for scoring dialogue (quality is experimental) |
-| Review | Browser preview, enable/disable, adjust clips and mark subtle zooms |
+| Review | Browser preview, human-readable selection reasons, enable/disable, adjust clips and mark subtle zooms |
 | Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT |
 | Processing | Localhost server; preserves source files; incremental rescans, stable media IDs and resumable per-file analysis |
 | Queue | Persisted per-video progress; resume after restart; file-level errors and retry |
@@ -97,7 +97,7 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.5-alpha.
+**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.7-alpha.
 
 ## CLIPTORA 0.1.6 queue troubleshooting
 
@@ -106,3 +106,9 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security 
 - If a file was modified since scanning, rescan the footage directory before retrying analysis.
 - Thread control applies to FFmpeg decoding/filters and Whisper CPU inference; it cannot guarantee a fixed memory or CPU percentage. Queue runs one recording at a time.
 - Project metadata and queue are stored locally in `project.json`. Keep a backup of it when editing a large library.
+
+## CLIPTORA 0.1.7 — audio reaction highlights
+
+Use **Scan → Analyze → Create selection**. For already-analyzed unchanged files, use **Create selection** again; no new speech model or reanalysis is required. This replaces the draft selection, so back up or export your manually reviewed draft before rebuilding it. Upgrading alone does not discard saved edits.
+
+Suggested clips can now show **Основание** (why): an acoustic spike compared with recent sound, nearby speech, and/or motion. These are statistical clues, **not** verified jokes, emotions, speakers or game events. The 0–100 score ranks candidates and is not a calibrated probability. Recordings remain local.
