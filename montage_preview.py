@@ -46,7 +46,7 @@ def preview_segments(clips, limit_seconds=PREVIEW_LIMIT_SECONDS):
     return selected, truncated, round(total, 3)
 
 
-def preview_signature(clips, files, normalize_audio, fade_ms):
+def preview_signature(clips, files, normalize_audio, fade_ms, pacing='normal'):
     """Stable content key: draft edits, render options and scan's source fingerprint."""
     media = {f['id']: f for f in files}
     selected = [c for c in clips if c.get('enabled')]
@@ -54,9 +54,10 @@ def preview_signature(clips, files, normalize_audio, fade_ms):
     for media_id in sorted({c['media_id'] for c in selected}):
         f = media.get(media_id, {})
         referenced.append({'id':media_id,'path':f.get('path'), 'size':f.get('size'),
-                           'mtime_ns':f.get('mtime_ns')})
-    payload={'format':'cliptora-preview-v1','limit_seconds':PREVIEW_LIMIT_SECONDS,
+                           'mtime_ns':f.get('mtime_ns'),
+                           'analysis_signature':f.get('analysis_signature')})
+    payload={'format':'cliptora-preview-v2','limit_seconds':PREVIEW_LIMIT_SECONDS,
              'clips':selected,'media':referenced,'normalize_audio':normalize_audio,
-             'fade_ms':fade_ms}
+             'fade_ms':fade_ms,'pacing':pacing}
     data=json.dumps(payload,ensure_ascii=False,sort_keys=True,separators=(',',':'))
     return hashlib.sha256(data.encode('utf-8')).hexdigest()

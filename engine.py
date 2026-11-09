@@ -27,6 +27,7 @@ from candidate_selection import select_best_clips
 from plan_variants import create_variants
 from export_quality import make_export_filters, validate_export_quality
 from montage_preview import preview_segments, preview_signature
+from pacing import plan_pacing, validate_pacing
 
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
@@ -321,12 +322,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.12'
+        self.project['version'] = '0.1.13'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.12','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
+        return {'version':'0.1.13','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
                 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
@@ -429,16 +430,20 @@ class Studio:
                 saved = {}
             normalize = saved.get('normalize_audio', False)
             fade = saved.get('fade_ms', 0)
+            pacing = saved.get('pacing', 'normal')
             filename = saved.get('path', '')
             source = Path(filename).resolve() if filename else None
             safe = bool(source and source.is_relative_to((self.work_dir/'previews').resolve()))
-            current = preview_signature(self.project.get('clips', []), self.project.get('files', []), normalize, fade)
+            current = preview_signature(self.project.get('clips', []), self.project.get('files', []), normalize, fade, pacing)
             available = bool(safe and source.is_file() and saved.get('signature') == current)
             return {'available':available,
                     'duration_seconds': saved.get('duration_seconds', 0) if available else 0,
                     'truncated':bool(saved.get('truncated', False)) if available else False,
                     'normalize_audio':normalize if available else False,
                     'fade_ms':fade if available else 0,
+                    'pacing':pacing if available else 'normal',
+                    'cuts':saved.get('cuts', 0) if available else 0,
+                    'removed_seconds':saved.get('removed_seconds', 0) if available else 0,
                     'url':'/api/montage-preview/video?v='+source.stem if available else ''}
 
     @staticmethod
@@ -845,21 +850,28 @@ class Studio:
             return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
         return ''.join(f'{i}\n{stamp(a)} --> {stamp(b)}\n{text}\n\n' for i,(a,b,text) in enumerate(result,1))
 
-    def render_preview(self, normalize_audio=False, fade_ms=0):
-        """Compose an opt-in 480p preview of up to the first two timeline minutes."""
-        return self.render(480, False, normalize_audio, fade_ms, preview_mode=True)
+    def render_preview(self, normalize_audio=False, fade_ms=0, pacing='normal'):
+        """Compose a 480p preview using the same pacing as the full export."""
+        return self.render(480, False, normalize_audio, fade_ms,
+                           preview_mode=True, pacing=pacing)
 
-    def render(self, height=720, burn_subtitles=False, normalize_audio=False, fade_ms=0, *, preview_mode=False):
-        # Freeze edits during export so UI changes cannot alter an in-flight render.
+    def render(self, height=720, burn_subtitles=False, normalize_audio=False, fade_ms=0,
+               *, preview_mode=False, pacing='normal'):
+        # Export-only pacing: never alter clips in the user's persistent draft.
         normalize_audio, fade_ms = validate_export_quality(normalize_audio, fade_ms)
+        pacing = validate_pacing(pacing)
         all_clips=copy.deepcopy(self.project['clips'])
+        wanted=[c for c in all_clips if c.get('enabled')]
+        if not wanted:
+            raise RuntimeError('Все фрагменты исключены. Нечего экспортировать')
+        map_files={f['id']:f for f in self.project['files']}
+        paced_clips, pace_info = plan_pacing(wanted, map_files, pacing)
         if preview_mode:
-            selected, truncated, preview_seconds = preview_segments(all_clips)
-            fingerprint = preview_signature(all_clips, self.project['files'], normalize_audio, fade_ms)
+            selected, truncated, preview_seconds = preview_segments(paced_clips)
+            fingerprint = preview_signature(all_clips, self.project['files'],
+                                           normalize_audio, fade_ms, pacing)
         else:
-            selected=[c for c in all_clips if c.get('enabled')]
-            if not selected:
-                raise RuntimeError('Все фрагменты исключены. Нечего экспортировать')
+            selected = paced_clips
         ffmpeg=locate_ffmpeg('ffmpeg')
         if not ffmpeg:
             raise RuntimeError('Не найден FFmpeg')
@@ -875,7 +887,6 @@ class Studio:
         pending_output=runs/f'.{prefix}_{now}_{height}p.partial.mp4'
         tmp_dir=self.work_dir/'cache'/now
         tmp_dir.mkdir(parents=True,exist_ok=True)
-        map_files={f['id']:f for f in self.project['files']}
         joined=[]
         try:
             for i,c in enumerate(selected):
@@ -925,7 +936,9 @@ class Studio:
                 self.project['montage_preview'] = {
                     'path':str(output), 'signature':fingerprint,
                     'duration_seconds':preview_seconds, 'truncated':truncated,
-                    'normalize_audio':normalize_audio,'fade_ms':fade_ms}
+                    'normalize_audio':normalize_audio,'fade_ms':fade_ms,
+                    'pacing':pacing,'cuts':pace_info['cuts'],
+                    'removed_seconds':pace_info['removed_seconds']}
                 self._save()
                 old_path=old_preview.get('path') if isinstance(old_preview,dict) else None
                 if old_path:
@@ -939,7 +952,8 @@ class Studio:
             manifest=output.with_suffix('.json')
             manifest.write_text(json.dumps({'source_dir':self.project['source_dir'],
                          'clips':selected,'rendered_to':str(output),
-                         'export_quality': {'normalize_audio':normalize_audio, 'fade_ms':fade_ms}},ensure_ascii=False,indent=2),encoding='utf-8')
+                         'export_quality': {'normalize_audio':normalize_audio, 'fade_ms':fade_ms},
+                         'pacing':pace_info},ensure_ascii=False,indent=2),encoding='utf-8')
             # Burn only if there are ASR subtitles and user explicitly requested it.
             if burn_subtitles and srt.stat().st_size>10:
                 subbed=output.with_name(output.stem+'_captions.mp4')

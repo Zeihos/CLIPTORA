@@ -12,13 +12,14 @@ from urllib.parse import urlparse, parse_qs
 
 from engine import Studio
 from export_quality import validate_export_quality
+from pacing import validate_pacing
 
 HERE=Path(__file__).resolve().parent
 studio=None
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version='CLIPTORA/0.1.12'
+    server_version='CLIPTORA/0.1.13'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/status'):
@@ -140,11 +141,13 @@ class Handler(BaseHTTPRequestHandler):
                 studio.edit_clip(payload.pop('id'),**payload)
             elif path=='/api/montage-preview':
                 normalize_audio, fade_ms = validate_export_quality(payload.get('normalize_audio',False),payload.get('fade_ms',0))
-                studio.schedule('Предпросмотр монтажа',studio.render_preview,normalize_audio,fade_ms)
+                pacing=validate_pacing(payload.get('pacing','normal'))
+                studio.schedule('Предпросмотр монтажа',studio.render_preview,normalize_audio,fade_ms,pacing)
             elif path=='/api/render':
                 normalize_audio, fade_ms = validate_export_quality(payload.get('normalize_audio',False),payload.get('fade_ms',0))
+                pacing=validate_pacing(payload.get('pacing','normal'))
                 studio.schedule('Экспорт MP4',studio.render,payload.get('height',720),payload.get('captions',False),
-                                normalize_audio, fade_ms)
+                                normalize_audio, fade_ms, pacing=pacing)
             elif path=='/api/stop':
                 studio.stop.set()
             elif path=='/api/output':

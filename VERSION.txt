@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.12-alpha — composed 480p montage preview (first 120 seconds), safe draft invalidation.
+0.1.13-alpha — opt-in transcript-backed silent-gap trimming with safe pacing presets.

@@ -13,8 +13,18 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.11**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Alpha 0.1.13**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
+
+### Темп монтажа и тихие паузы (v0.1.13)
+
+В разделе **Экспорт** выберите темп: **Исходный** (по умолчанию, без изменений), **Динамичный** или **Быстрый**. После этого нажмите «Собрать предпросмотр» и сравните с исходной версией. Тот же темп применяется к финальному MP4 и учтён при создании SRT.
+
+- Склейки происходят **только между распознанными репликами** и только в достаточно тихих участках. При наличии результатов анализа движения активные игровые события тоже защищены от сокращения.
+- Для работы требуется сохранённая стенограмма `faster-whisper` **и** аудиоанализ; без них сцены не сокращаются. Обнаружение пауз — эвристика, а не полноценный анализ смысла или точная классификация звуков.
+- **Динамичный** режим ищет пробелы между репликами от 2 с, **Быстрый** — от 1.1 с. Оба оставляют запас до и после речи; не больше 24 сокращений в одном исходном фрагменте.
+- Сокращение применяется **при экспорте**, а не к ручному черновику или исходному видео. Предпросмотр и финальный экспорт используют одну реализацию. Переключение режима делает прежний предпросмотр неактуальным.
+- В `*.json` рядом с экспортом записаны режим, количество сокращений и удалённая длительность. Пока нет проверки качества итогового монтажа на сотнях гигабайт.
 
 ### Предпросмотр готового монтажа (v0.1.12)
 
@@ -34,7 +44,7 @@
 | Context | Keep surrounding dialogue, rank candidates by reviewable context signals and manually edit clip start/end |
 | AI | Optional **local** Ollama for scoring dialogue (quality is experimental) |
 | Review | Browser preview, human-readable selection reasons, enable/disable, adjust clips and mark subtle zooms |
-| Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT; optional per-clip loudness normalization and short fade-through-black transitions |
+| Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT; optional conservative dialogue-gap trimming, per-clip loudness normalization and short fade-through-black transitions |
 | Processing | Localhost server; preserves source files; incremental rescans, stable media IDs and resumable per-file analysis |
 | Queue | Persisted per-video progress; resume after restart; file-level errors and retry |
 | Resource controls | Sequential video analysis and adjustable FFmpeg/Whisper CPU threads (1–8; default 2) |
@@ -112,12 +122,11 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security 
 
 ## Compare three edit drafts safely (v0.1.10)
 
-After processing your videos, choose **Compare 3 variants** under Draft editing. CLIPTORA builds balanced, dialogue and action options from cached audio, speech and movement analysis. Preview does not overwrite project.json or manually edited clips; inspect any proposed shot in the local player.
+After processing your videos, choose **Compare 3 variants** under Draft editing. CLIPTORA builds balanced, dialogue and action options from cached audio, speech and movement analysis. This preview never replaces `project.json` or your manual edits. Click ▶ on a suggested segment to inspect it locally.
 
-Only an explicit Apply action replaces a draft. Previous clip lists (including enabled state, labels and trims) are recorded in plan_history in project.json, retaining up to five replacements. Choose Undo apply to restore the previous version even after restarting. Previews become invalid after changing the project. The legacy /api/plan endpoint also makes a reversible snapshot.
+Click **Apply** only after reviewing the option you prefer. The complete previous clip list, including disabled segments, custom labels, zoom and trims, is saved in `plan_history` within `project.json` (last five replacements retained). Click **Undo apply** to restore the previous plan, even after restarting the program. Preview tokens become invalid when the project changes; compare again after a rescan or manual edit. The legacy `/api/plan` endpoint also keeps a recoverable snapshot.
 
-Presets change transparent heuristic rankings, not any AI understanding of jokes or events. Back up the workspace before major edits. Performance on a complete 250 GB library has not been verified.
-
+The presets adjust simple ranking scores. They do not recognize comedic intent or guarantee quality. Back up the complete workspace before large changes and avoid storing generated output inside the recordings directory.
 
 ## CLIPTORA 0.1.6 queue troubleshooting
 

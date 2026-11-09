@@ -1,3 +1,12 @@
+# 0.1.13 Alpha — conservative dialogue pacing (2026-11-10)
+
+- Introduce three export-only pacing options: `normal` (default/unchanged), `dynamic`, and `fast`.
+- Shorten only verified quiet intervals **between** existing Whisper speech segments. Require 0.5s audio data, preserve speech padding, and avoid deleting gaps containing audio spikes or significant visual activity (when motion analysis is available).
+- Keep the manual edit unchanged; preview and final export use the same planned FFmpeg cuts and subtitle timing. Invalid pacing settings are rejected by the HTTP API.
+- Show removed-time/cut summary in the preview and export JSON. Changing the selected pacing invalidates the currently displayed rendered preview. Cap at 24 gap removals per editor clip.
+- Add test coverage for music/reactions, gameplay motion, missing transcripts, fast vs. dynamic, safe defaults, original-draft preservation, preview/final rendering, subtitles, and HTTP input validation.
+- This is a **conservative heuristic**, not true speech or comedy understanding. Not stress-tested on 250 GB; do not treat it as a guarantee of better edits.
+
 # 0.1.12 Alpha — composed montage preview (2026-11-09)
 
 - Add opt-in 480p MP4 preview of up to the **first 120 seconds** of the selected draft, in editor order. It uses the normal FFmpeg audio/video effects and zoom, with faster encoding.
@@ -16,11 +25,12 @@
 
 # 0.1.10 Alpha — reversible alternative plans (2026-11-09)
 
-- Preview three heuristic edit selections (balanced, dialogue-heavy, action-heavy) without changing the current manual draft.
-- Inspect proposed scenes in the local player before explicitly applying a plan.
-- Every apply saves a previous draft in project.json (up to five undo levels), restoring labels, trims and disabled segments even after a restart.
-- Reject stale previews after persistent project changes and block applying during analysis/export.
-- These presets do not understand jokes or game events; 250 GB library performance has not been verified.
+- Preview three heuristic edit selections (balanced, dialogue-heavy, action-heavy) without writing to project.json or replacing manual clip edits.
+- Inspect proposed scenes in the existing local media player before applying a candidate plan.
+- Only an explicit Apply action replaces the current draft; every apply stores the previous plan in a bounded five-step undo history in project.json.
+- Undo works after app restart and restores disabled clips, labels, exact trims, zoom and previous selection stats. Refuse undo if referenced source recordings no longer exist in the indexed library.
+- Reject stale preview tokens if any persisted project change occurred after generating the comparison, and prevent apply while export or analysis is running.
+- Preset adjustments are explained heuristic weightings, **not** AI understanding of comedy. The local 250 GB library has not been stress-tested.
 
 # 0.1.8 Alpha — dialogue context and natural endings
 
