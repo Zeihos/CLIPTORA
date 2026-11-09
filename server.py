@@ -18,7 +18,7 @@ studio=None
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version='CLIPTORA/0.1.11'
+    server_version='CLIPTORA/0.1.12'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/status'):
@@ -48,11 +48,20 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_blob(studio.status())
             if parsed.path=='/media':
                 return self.stream_media(parse_qs(parsed.query).get('id',[''])[0])
+            if parsed.path=='/api/montage-preview/video':
+                return self.stream_montage_preview()
             return self.send_blob({'error':'Not found'},code=404)
         except (BrokenPipeError,ConnectionResetError):
             return
         except Exception as e:
             return self.send_blob({'error':str(e)},code=500)
+
+    def stream_montage_preview(self):
+        info=studio.preview_info()
+        if not info['available']:
+            return self.send_blob({'error':'Предпросмотр устарел. Создайте новый.'},code=409)
+        path=Path(studio.project['montage_preview']['path']).resolve()
+        return self.stream_file(path, 'video/mp4')
 
     def stream_media(self, media_id):
         f=next((x for x in studio.project['files'] if x['id']==media_id),None)
@@ -62,6 +71,9 @@ class Handler(BaseHTTPRequestHandler):
         root=Path(studio.project['source_dir'])
         if not path.is_file() or not path.resolve().is_relative_to(root.resolve()):
             return self.send_blob({'error':'Media unavailable'},code=404)
+        return self.stream_file(path, 'video/mp4' if path.suffix.lower()=='.mp4' else 'application/octet-stream')
+
+    def stream_file(self, path, content_type):
         size=path.stat().st_size
         r=self.headers.get('Range','')
         match=re.fullmatch(r'bytes=(\d+)-(\d*)',r.strip())
@@ -75,8 +87,9 @@ class Handler(BaseHTTPRequestHandler):
         if match and match.group(2):
             end=min(end,int(match.group(2)))
         self.send_response(206 if match else 200)
-        self.send_header('Content-Type','video/mp4' if path.suffix.lower()=='.mp4' else 'application/octet-stream')
+        self.send_header('Content-Type',content_type)
         self.send_header('Accept-Ranges','bytes')
+        self.send_header('Cache-Control','no-store')
         if match:
             self.send_header('Content-Range',f'bytes {start}-{end}/{size}')
         self.send_header('Content-Length',str(end-start+1))
@@ -125,6 +138,9 @@ class Handler(BaseHTTPRequestHandler):
                 studio.add_clip(payload['media_id'],payload['start'],payload['end'])
             elif path=='/api/clip':
                 studio.edit_clip(payload.pop('id'),**payload)
+            elif path=='/api/montage-preview':
+                normalize_audio, fade_ms = validate_export_quality(payload.get('normalize_audio',False),payload.get('fade_ms',0))
+                studio.schedule('Предпросмотр монтажа',studio.render_preview,normalize_audio,fade_ms)
             elif path=='/api/render':
                 normalize_audio, fade_ms = validate_export_quality(payload.get('normalize_audio',False),payload.get('fade_ms',0))
                 studio.schedule('Экспорт MP4',studio.render,payload.get('height',720),payload.get('captions',False),

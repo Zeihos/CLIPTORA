@@ -1,3 +1,11 @@
+# 0.1.12 Alpha — composed montage preview (2026-11-09)
+
+- Add opt-in 480p MP4 preview of up to the **first 120 seconds** of the selected draft, in editor order. It uses the normal FFmpeg audio/video effects and zoom, with faster encoding.
+- Provide a dedicated browser player with range-based seeking and stale-preview checks after edits or media changes.
+- Keep cached previews in the project's `previews/` directory, never overwrite final exports or original footage, and clean up failed staging files.
+- Disable playback when the configured normalization/fades differ from the rendered preview; require explicit regeneration.
+- Add preview timeline planning, fingerprint, FFmpeg integration and HTTP streaming regression tests.
+
 # 0.1.11 Alpha — export quality and failure safety (2026-11-09)
 
 - Add opt-in per-clip FFmpeg loudness normalization targeting -16 LUFS / -1.5 dBTP. Warn that single-pass processing may amplify quiet backgrounds and is not whole-program measurement.

@@ -26,6 +26,7 @@ from dialogue_context import build_dialogue_windows
 from candidate_selection import select_best_clips
 from plan_variants import create_variants
 from export_quality import make_export_filters, validate_export_quality
+from montage_preview import preview_segments, preview_signature
 
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
@@ -320,12 +321,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.11'
+        self.project['version'] = '0.1.12'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.11','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
+        return {'version':'0.1.12','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
                 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
@@ -412,12 +413,33 @@ class Studio:
                     'selection_summary':self.project.get('selection_summary', {}),
                     'plan_undo_available':bool(self.project.get('plan_history')),
                     'plan_history_size':len(self.project.get('plan_history', [])),
+                    'montage_preview':self.preview_info(),
                     'ffmpeg':bool(locate_ffmpeg('ffmpeg')),'ffprobe':bool(locate_ffmpeg('ffprobe')),
                     'whisper_installed':self.whisper_available(),
                     'rust_scanner_available':bool(locate_scanner()),
                     'scan_backend':self.scan_backend,
                     'total_bytes':sum(f.get('size',0) for f in files),
                     'total_seconds':sum(f.get('duration',0) for f in files)}
+
+    def preview_info(self):
+        """Only expose a local rendered preview that still matches the draft."""
+        with self.lock:
+            saved = self.project.get('montage_preview', {})
+            if not isinstance(saved, dict):
+                saved = {}
+            normalize = saved.get('normalize_audio', False)
+            fade = saved.get('fade_ms', 0)
+            filename = saved.get('path', '')
+            source = Path(filename).resolve() if filename else None
+            safe = bool(source and source.is_relative_to((self.work_dir/'previews').resolve()))
+            current = preview_signature(self.project.get('clips', []), self.project.get('files', []), normalize, fade)
+            available = bool(safe and source.is_file() and saved.get('signature') == current)
+            return {'available':available,
+                    'duration_seconds': saved.get('duration_seconds', 0) if available else 0,
+                    'truncated':bool(saved.get('truncated', False)) if available else False,
+                    'normalize_audio':normalize if available else False,
+                    'fade_ms':fade if available else 0,
+                    'url':'/api/montage-preview/video?v='+source.stem if available else ''}
 
     @staticmethod
     def whisper_available():
@@ -823,12 +845,21 @@ class Studio:
             return f'{ms//3600000:02}:{ms//60000%60:02}:{ms//1000%60:02},{ms%1000:03}'
         return ''.join(f'{i}\n{stamp(a)} --> {stamp(b)}\n{text}\n\n' for i,(a,b,text) in enumerate(result,1))
 
-    def render(self, height=720, burn_subtitles=False, normalize_audio=False, fade_ms=0):
+    def render_preview(self, normalize_audio=False, fade_ms=0):
+        """Compose an opt-in 480p preview of up to the first two timeline minutes."""
+        return self.render(480, False, normalize_audio, fade_ms, preview_mode=True)
+
+    def render(self, height=720, burn_subtitles=False, normalize_audio=False, fade_ms=0, *, preview_mode=False):
         # Freeze edits during export so UI changes cannot alter an in-flight render.
         normalize_audio, fade_ms = validate_export_quality(normalize_audio, fade_ms)
-        selected=[dict(c) for c in self.project['clips'] if c.get('enabled')]
-        if not selected:
-            raise RuntimeError('Все фрагменты исключены. Нечего экспортировать')
+        all_clips=copy.deepcopy(self.project['clips'])
+        if preview_mode:
+            selected, truncated, preview_seconds = preview_segments(all_clips)
+            fingerprint = preview_signature(all_clips, self.project['files'], normalize_audio, fade_ms)
+        else:
+            selected=[c for c in all_clips if c.get('enabled')]
+            if not selected:
+                raise RuntimeError('Все фрагменты исключены. Нечего экспортировать')
         ffmpeg=locate_ffmpeg('ffmpeg')
         if not ffmpeg:
             raise RuntimeError('Не найден FFmpeg')
@@ -836,11 +867,12 @@ class Studio:
         if height not in (480,720,1080):
             raise ValueError('Разрешение: 480, 720 или 1080')
         width=int(height*16/9)//2*2
-        runs=self.work_dir/'renders'
+        runs=self.work_dir/('previews' if preview_mode else 'renders')
         runs.mkdir(exist_ok=True)
         now=datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-        output=runs/f'CLIPTORA_{now}_{height}p.mp4'
-        pending_output=runs/f'.CLIPTORA_{now}_{height}p.partial.mp4'
+        prefix='CLIPTORA_preview' if preview_mode else 'CLIPTORA'
+        output=runs/f'{prefix}_{now}_{height}p.mp4'
+        pending_output=runs/f'.{prefix}_{now}_{height}p.partial.mp4'
         tmp_dir=self.work_dir/'cache'/now
         tmp_dir.mkdir(parents=True,exist_ok=True)
         map_files={f['id']:f for f in self.project['files']}
@@ -849,7 +881,9 @@ class Studio:
             for i,c in enumerate(selected):
                 if self.stop.is_set():
                     raise InterruptedError('Экспорт остановлен')
-                media=map_files[c['media_id']]
+                media=map_files.get(c['media_id'])
+                if not media or not Path(media['path']).is_file():
+                    raise RuntimeError(f'Исходный файл для фрагмента {i+1} недоступен')
                 outfile=tmp_dir/f'part_{i:04}.mp4'
                 dur=c['end']-c['start']
                 vfilter, afilter = make_export_filters(dur, width, height,
@@ -860,8 +894,9 @@ class Studio:
                     cmd+=['-f','lavfi','-i','anullsrc=r=48000:cl=stereo']
                 cmd+=['-t',str(dur),'-map','0:v:0','-map',('0:a:0' if media.get('audio') else '1:a:0'),
                       '-vf',vfilter,'-af',afilter,
-                      '-c:v','libx264','-preset','veryfast','-crf','22',
-                      '-pix_fmt','yuv420p','-r','30','-c:a','aac','-b:a','160k',
+                      '-c:v','libx264','-preset',('ultrafast' if preview_mode else 'veryfast'),
+                      '-crf',('28' if preview_mode else '22'),
+                      '-pix_fmt','yuv420p','-r','30','-c:a','aac','-b:a',('96k' if preview_mode else '160k'),
                       '-ar','48000','-ac','2','-movflags','+faststart',str(outfile)]
                 p=process(cmd,timeout=3600)
                 if p.returncode:
@@ -884,6 +919,21 @@ class Studio:
             if self.stop.is_set():
                 raise InterruptedError('Экспорт остановлен')
             os.replace(pending_output, output)
+            if preview_mode:
+                # Preview is separate from final output and never writes SRT/manifest.
+                old_preview = self.project.get('montage_preview', {})
+                self.project['montage_preview'] = {
+                    'path':str(output), 'signature':fingerprint,
+                    'duration_seconds':preview_seconds, 'truncated':truncated,
+                    'normalize_audio':normalize_audio,'fade_ms':fade_ms}
+                self._save()
+                old_path=old_preview.get('path') if isinstance(old_preview,dict) else None
+                if old_path:
+                    previous=Path(old_path).resolve()
+                    if previous != output.resolve() and previous.is_relative_to(runs.resolve()):
+                        previous.unlink(missing_ok=True)
+                self.log('Предпросмотр готов: '+str(output))
+                return output
             srt=output.with_suffix('.srt')
             srt.write_text(self.srt_content(selected),encoding='utf-8-sig')
             manifest=output.with_suffix('.json')

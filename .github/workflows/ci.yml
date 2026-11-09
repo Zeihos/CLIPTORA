@@ -22,6 +22,6 @@ jobs:
       - name: Build optional Rust scanner
         run: cargo build --release --locked --manifest-path rust/scanner/Cargo.toml
       - name: Compile Python
-        run: python -m py_compile engine.py server.py scanner_bridge.py highlight_signals.py dialogue_context.py candidate_selection.py plan_variants.py export_quality.py
+        run: python -m py_compile engine.py server.py scanner_bridge.py highlight_signals.py dialogue_context.py candidate_selection.py plan_variants.py export_quality.py montage_preview.py
       - name: Unit tests
         run: python -m unittest discover -s tests -v

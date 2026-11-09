@@ -15,6 +15,16 @@
 > [!IMPORTANT]
 > **Alpha 0.1.11**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
+
+### Предпросмотр готового монтажа (v0.1.12)
+
+В разделе **Экспорт** после выбора сцен и параметров звука/переходов нажмите **«Собрать предпросмотр · первые 2 мин»**. CLIPTORA создаст отдельный MP4 в 480p в рабочей папке `previews/`, сохранив порядок сцен, обрезку, зум, нормализацию и затухания. Файл можно воспроизвести и перемотать в браузере.
+
+- Режим ограничен **первыми 120 секундами** выбранного черновика. Длинный монтаж целиком формируется обычным экспортом.
+- Предпросмотр **не меняет** исходные записи, ручной монтаж, субтитры и `last_output`. Встраивание субтитров не предусмотрено.
+- Если изменить границы, набор клипов или настройки звука/переходов, предпросмотр станет устаревшим — создайте новый.
+- Для работы необходим FFmpeg; предпросмотр требует кодирования и не является рендерингом в реальном времени.
+
 ## What it can do today
 
 | Area | Supported in the alpha |

@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.11-alpha — optional per-clip audio normalization and short soft cuts; safer MP4 export.
+0.1.12-alpha — composed 480p montage preview (first 120 seconds), safe draft invalidation.
