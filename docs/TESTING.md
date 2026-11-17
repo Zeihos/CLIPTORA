@@ -1,21 +1,36 @@
-# Testing and contributing
+# Тестирование CLIPTORA
 
-Use Python **3.12** for parity with the Windows scripts. Tests use the Python standard library; certain FFmpeg integration tests skip if FFmpeg/FFprobe are unavailable.
+Используйте **Python 3.12**, как в Windows-скриптах и GitHub Actions.
 
-```sh
-python -m compileall -q .
-python -m unittest discover -s tests -v
+## Python
+
+```powershell
+py -3.12 -m compileall -q .
+py -3.12 -m unittest discover -s tests -v
 ```
 
-Optional native scanner (requires Rust):
+На Linux/macOS с Python 3.12 используйте `python` вместо `py -3.12`.
 
-```sh
+## Rust Core (необязательно локально)
+
+```powershell
 cargo test --locked --manifest-path rust/scanner/Cargo.toml
 cargo build --release --locked --manifest-path rust/scanner/Cargo.toml
 ```
 
-The GitHub Actions workflow tests both Windows and Ubuntu. It builds Rust and verifies the Python bridge can find the native binary. A skipped local Rust test **does not** prove native scanner parity.
+GitHub Actions проверяет Windows и Ubuntu, собирает Rust и убеждается, что Python обнаруживает собранный сканер.
 
-Before publishing, manually scan a short sample of gameplay footage, review/edit a draft, apply/undo an alternate selection, render a preview, change a clip to invalidate that preview, then export and play back an MP4. Inspect the output and make sure the source footage is unchanged. Do not claim a 250 GB stress test, browser E2E test or release installer is complete unless it has actually been run.
+> [!NOTE]
+> Некоторые тесты FFmpeg пропускаются, если в среде нет FFmpeg/FFprobe. Пропущенный локальный тест нативного сканера не подтверждает его работоспособность — для этого требуется Rust.
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for pull request guidelines. Never include actual recordings, transcripts, local project metadata or secrets in issue reports.
+## Ручная проверка перед выпуском
+
+1. Просканируйте небольшую папку с игровыми записями.
+2. Запустите анализ, сформируйте подборку и измените границы одного клипа.
+3. Сравните три варианта, примените один и восстановите предыдущий черновик.
+4. Соберите предпросмотр, измените клип и проверьте, что предпросмотр помечен устаревшим.
+5. Экспортируйте MP4, воспроизведите его и убедитесь, что исходники остались без изменений.
+
+Не утверждайте, что выполнен стресс-тест на 250 ГБ, тестирование браузера на Windows или создан установщик `.exe`, пока этого действительно не произошло.
+
+См. также [участие в разработке](../CONTRIBUTING.md).

@@ -1,11 +1,19 @@
 ---
-name: Feature request
-description: Suggest an improvement to CLIPTORA
-labels: enhancement
+name: Предложить улучшение
+description: Идея для новой возможности CLIPTORA
+title: "[Идея] "
+labels: ["enhancement"]
+assignees: []
 ---
 
-**What problem are you trying to solve?**
+### Какую проблему решаем?
+Опишите ситуацию пользователя.
 
-**What should CLIPTORA do?**
+### Как вы предлагаете это реализовать?
+Что должна делать программа?
 
-**Possible trade-offs / relevant examples:**
+### Почему это полезно?
+Какие сценарии станут проще или быстрее?
+
+### Дополнительно
+Примеры или безопасные скриншоты (необязательно).

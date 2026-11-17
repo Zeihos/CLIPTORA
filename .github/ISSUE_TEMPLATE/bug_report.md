@@ -1,14 +1,27 @@
 ---
-name: Bug report
-description: Something in CLIPTORA is not working
-labels: bug
+name: Сообщить об ошибке
+description: Что-то не работает или работает неправильно
+title: "[Ошибка] "
+labels: ["bug"]
+assignees: []
 ---
 
-**Version:**
-**Windows version / Python version:**
-**What did you expect?**
-**What happened?**
-**How to reproduce:**
-**Redacted logs:**
+### Что произошло?
+Опишите проблему.
 
-Please remove private filenames, video, real conversations and tokens before posting.
+### Как воспроизвести?
+1.
+2.
+3.
+
+### Ожидаемый результат
+Что должно было произойти?
+
+### Окружение
+- Версия CLIPTORA:
+- Windows:
+- Python (если известно):
+- FFmpeg (если известно):
+
+### Логи или скриншоты
+Добавьте только **очищенные от личных данных** материалы. Не прикладывайте видео, записи разговоров, токены и приватные пути.

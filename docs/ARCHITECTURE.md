@@ -1,26 +1,30 @@
-# Architecture
+# Архитектура CLIPTORA
 
-CLIPTORA is a local Python 3.12 application with a browser UI, not a cloud service or a standalone Windows installer.
+CLIPTORA — локальное приложение на **Python 3.12** с веб-интерфейсом. Это не облачный сервис и пока не самостоятельный Windows-установщик.
 
 ```text
-Original videos (read-only)
-        |
-scanner_bridge.py --- optional rust/scanner (file inventory only)
-        |
-engine.py --- FFprobe / FFmpeg --- audio and motion metadata
-        |--- optional faster-whisper transcription
-        |--- optional local Ollama dialogue hints
-        |
-highlight_signals.py / dialogue_context.py / climax_timing.py
-        |
-candidate_selection.py / plan_variants.py --- reviewable drafts
-        |--- quality_benchmark.py (human reference intervals)
-        |--- pacing.py / export_quality.py (non-destructive render settings)
-        '--- montage_preview.py / engine.py --- MP4 and SRT
+Исходные видео (только чтение)
+    │
+    ├── scanner_bridge.py ── необязательный Rust-сканер
+    │                         (только поиск файлов и метаданных)
+    │
+    └── engine.py ── FFprobe / FFmpeg
+           ├── звуковая активность и движение
+           ├── faster-whisper (необязательное распознавание речи)
+           ├── Ollama (необязательные локальные подсказки)
+           ├── highlight_signals.py / dialogue_context.py / climax_timing.py
+           ├── candidate_selection.py / plan_variants.py
+           ├── quality_benchmark.py (ручная разметка и метрики)
+           └── pacing.py / export_quality.py / montage_preview.py
+                    └── MP4 + SRT
 ```
 
-`server.py` provides the local UI and JSON endpoints at `127.0.0.1:8765`. `web/index.html` is served from disk. The server has no public-facing authentication: **do not expose its port to other networks**.
+## Сервер и данные
 
-Project state is stored in a local `project.json` under `~/CLIPTORA` (or the existing legacy project directory); renders, cache and previews are stored separately from source video. Rescans reuse cached analysis for unchanged files. The processing queue saves completed files so a restart does not require reprocessing them. Rust is optional; ffprobe, decoding, inference and rendering remain in Python/FFmpeg.
+- `server.py` обслуживает `web/index.html` и локальные API на `127.0.0.1:8765`. **Сервер не предназначен для публичного доступа.**
+- Состояние хранится в `%USERPROFILE%\CLIPTORA\project.json` (или в уже существующей папке прежней установки).
+- Кэш, предпросмотры и рендеры хранятся отдельно от исходного видео.
+- Повторное сканирование сохраняет результаты для неизменённых файлов, а очередь поддерживает продолжение после перезапуска.
+- Rust нужен только для необязательного ускорения поиска файлов. Распознавание речи, FFprobe и FFmpeg остаются отдельными компонентами.
 
-Python modules remain at repository root for compatibility with existing launcher scripts and tests. Packaging as a Python library or shipping a `.exe` requires a separately tested migration.
+Python-модули пока расположены в корне репозитория для совместимости с существующими скриптами и тестами. Миграция в пакет или сборка `.exe` потребуют отдельной проверки.

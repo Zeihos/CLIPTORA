@@ -1,10 +1,12 @@
-# Security policy
+# Безопасность CLIPTORA
 
-**Alpha / experimental.** CLIPTORA is intended to run on a personal Windows computer. The UI binds to `127.0.0.1`, not all network interfaces.
+CLIPTORA находится на стадии **Alpha** и предназначена для локального использования на компьютере пользователя.
 
-- Do not publicly forward or expose port `8765`.
-- Only analyze media you are entitled to use.
-- Treat untrusted media as potentially hostile; use updated FFmpeg and OS components.
-- Do not post security vulnerabilities, tokens, private footage or identifiable recording metadata in public issues.
+- Веб-интерфейс доступен только на `127.0.0.1:8765`. **Не открывайте порт 8765 в Интернет.**
+- Используйте актуальные версии Windows, FFmpeg и зависимостей.
+- Обрабатывайте только записи, на использование которых у вас есть права.
+- Не публикуйте в GitHub Issues исходные видео, записи голоса, персональные пути, токены или полные логи с приватными данными.
 
-For a sensitive vulnerability, contact the project maintainer privately via GitHub rather than opening a public issue. No guaranteed security response SLA is established during alpha.
+**Нашли уязвимость?** Не создавайте публичный Issue с деталями эксплуатации. Свяжитесь с сопровождающим [Zeihos](https://github.com/Zeihos) приватно через доступные на его профиле средства связи.
+
+На стадии Alpha фиксированное время реагирования на сообщения о безопасности не гарантируется.

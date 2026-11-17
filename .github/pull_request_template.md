@@ -1,11 +1,15 @@
-## What changed?
+## Что изменено?
+Кратко опишите изменения и причину.
 
-## How was it tested?
+## Как проверить?
+- [ ] `py -3.12 -m unittest discover -s tests -v`
+- [ ] `py -3.12 -m compileall -q .`
+- [ ] Проверил Rust (`cargo test --locked --manifest-path rust/scanner/Cargo.toml`) — если менял Rust
+- [ ] Проверил интерфейс и приложил скриншоты — если менял UI
 
-- [ ] `python -m unittest discover -s tests -v`
-- [ ] `python -m py_compile engine.py server.py`
-- [ ] Manual preview / screenshots (for UI changes)
+## Совместимость и приватность
+- [ ] Изменения не удаляют исходные видео и пользовательские черновики
+- [ ] В коммите нет личных файлов, записей, токенов, кэша моделей или приватных логов
 
-## Safety and privacy
-
-- [ ] I did not include original recordings, private logs, paths, keys or model weights.
+## Примечания
+Укажите ограничения, известные ошибки или пропущенные тесты.

@@ -1,110 +1,120 @@
-<p align="center"><img src="assets/cliptora-banner.svg" alt="CLIPTORA — Local-first AI video editor" width="100%"></p>
-
 <p align="center">
-  <strong>CLIPTORA</strong> — a free, open-source, local-first video highlight editor for Windows.<br>
-  Scan your footage, analyze speech and activity, review the best moments, and export a cut.
+  <img src="assets/cliptora-banner.svg" alt="CLIPTORA — локальный ИИ-видеоредактор для игровых моментов" width="100%">
 </p>
 
 <p align="center">
-  <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-9485FF">
-  <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB">
-  <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-384A6D">
-  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-5CD7E6">
+  <strong>Локальный ИИ-помощник для монтажа игровых видео</strong><br>
+  Находит интересные моменты, помогает собрать динамичную нарезку и экспортировать результат в MP4.
 </p>
+
+<p align="center">
+  <a href="https://github.com/Zeihos/CLIPTORA/actions/workflows/ci.yml"><img alt="Проверки Windows и Ubuntu" src="https://github.com/Zeihos/CLIPTORA/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Версия: Alpha 0.1.15" src="https://img.shields.io/badge/версия-0.1.15%20Alpha-9477FF">
+  <img alt="Платформа: Windows" src="https://img.shields.io/badge/платформа-Windows-3776AB">
+  <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3672A0">
+  <a href="LICENSE"><img alt="Лицензия MIT" src="https://img.shields.io/badge/лицензия-MIT-25B7C4"></a>
+</p>
+
+<p align="center">
+  <a href="#-быстрый-запуск"><b>Начать работу</b></a> ·
+  <a href="#-возможности"><b>Возможности</b></a> ·
+  <a href="docs/INSTALL_RU.md"><b>Установка</b></a> ·
+  <a href="CHANGELOG.md"><b>История версий</b></a> ·
+  <a href="CONTRIBUTING.md"><b>Участие в разработке</b></a>
+</p>
+
+---
+
+## ◈ Что такое CLIPTORA?
+
+**CLIPTORA** — бесплатный проект с открытым исходным кодом для Windows. Он помогает превратить длинные игровые записи в подборку моментов, которые затем можно проверить и подредактировать вручную.
+
+Программа работает **локально**: сканирует выбранную папку, анализирует динамику звука и изображения, при необходимости распознаёт речь через `faster-whisper`, предлагает сцены и экспортирует видео с помощью **FFmpeg**. Для подсказок по диалогам можно дополнительно использовать локальный **Ollama**.
 
 > [!IMPORTANT]
-> **Alpha 0.1.15**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Текущий статус — Alpha 0.1.15.** Это помощник для первичного отбора и монтажа, а не полноценная замена DaVinci Resolve или Premiere Pro. CLIPTORA пока не умеет достоверно понимать юмор, мемы или события конкретной игры. Все автоматически выбранные моменты нужно просматривать. Готового установщика `.exe` и подтверждённого стресс-теста на 250 ГБ пока нет.
 
-## Documentation
+## ✦ Возможности
 
-- [Установка на Windows (по-русски)](docs/INSTALL_RU.md)
-- [Detailed feature guide](docs/FEATURE_GUIDE.md)
-- [Architecture](docs/ARCHITECTURE.md) · [Testing](docs/TESTING.md)
-- [Changes](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+| Функция | Что доступно сейчас |
+| :--- | :--- |
+| **Библиотека записей** | Сканирование папок, сохранение идентификаторов видео и повторный анализ только при изменениях |
+| **Поиск моментов** | Звуковые всплески, движение, подводка и продолжение реакции; объяснение причины выбора |
+| **Распознавание речи** | Необязательный локальный `faster-whisper`; поддержка подсказок через Ollama |
+| **Варианты монтажа** | Сбалансированный, диалоговый и экшен; сравнение перед применением |
+| **Ручная доводка** | Границы сцен, порядок, включение/отключение фрагментов, лёгкий зум, история черновиков |
+| **Проверка качества** | Сравнение с вручную отмеченными моментами: Precision, Recall, F1 |
+| **Предпросмотр** | MP4 в 480p для первых 120 секунд будущего монтажа |
+| **Экспорт** | MP4 в 480p / 720p / 1080p и SRT; темп, нормализация звука и короткие переходы |
+| **Длинные задачи** | Сохраняемая очередь анализа, повтор ошибок и ограничение числа CPU-потоков |
+| **Rust Core** | Необязательный быстрый сканер метаданных с автоматическим резервным Python-режимом |
 
-## What it can do today
+## ⚡ Быстрый запуск
 
-| Area | Supported in the alpha |
-| --- | --- |
-| Library | Recursively scan a user-selected folder of videos |
-| Analysis | Relative audio reaction peaks, bounded post-reaction context and optional visual motion; optional local speech recognition via `faster-whisper` |
-| Context | Keep surrounding dialogue, rank candidates by reviewable context signals and manually edit clip start/end |
-| AI | Optional **local** Ollama for scoring dialogue (quality is experimental) |
-| Review | Browser preview, human-readable selection reasons, enable/disable, adjust clips and mark subtle zooms |
-| Quality benchmark | Human-annotated reference moments, local one-to-one IoU matching, Precision / Recall / F1 for current and alternative selections |
-| Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT; optional conservative dialogue-gap trimming, per-clip loudness normalization and short fade-through-black transitions |
-| Processing | Localhost server; preserves source files; incremental rescans, stable media IDs and resumable per-file analysis |
-| Queue | Persisted per-video progress; resume after restart; file-level errors and retry |
-| Resource controls | Sequential video analysis and adjustable FFmpeg/Whisper CPU threads (1–8; default 2) |
-| Rust Core | Optional Rust video file inventory scanner with automatic Python fallback (Rust does **not** run speech AI or FFmpeg) |
+**Требования:** Windows 10/11, **Python 3.12**, FFmpeg и FFprobe. Rust и модели ИИ — по желанию.
 
-**Not yet implemented:** automatic meme selection, precise semantic scene understanding, motion tracking, elaborate keyframed effects, professional audio mixing, a standalone `.exe` installer, or a multi-track timeline.
+1. Скачайте исходники через **[Code → Download ZIP](https://github.com/Zeihos/CLIPTORA/archive/refs/heads/main.zip)** и распакуйте отдельно от папки с видеозаписями.
+2. Запустите **`SETUP_WINDOWS.bat`** — он поможет проверить Python 3.12 и FFmpeg.
+3. При необходимости установите распознавание речи через **`INSTALL_AI_WINDOWS.bat`**.
+4. Запустите **`START_WINDOWS.bat`**. Интерфейс откроется в браузере по адресу **http://127.0.0.1:8765**.
+5. Выберите папку с записями → **Сканировать** → **Анализировать** → **Создать подборку** → **Проверить клипы** → **Экспорт MP4**.
 
-## Quick start — Windows
+<details>
+<summary><b>Ручной запуск и необязательный Rust Core</b></summary>
 
-1. Install **Python 3.12** (not 3.15). The Windows launchers explicitly select 3.12.
-2. Unzip this repository somewhere outside your footage directory.
-3. Run `SETUP_WINDOWS.bat` to check Python and FFmpeg (the script can install FFmpeg with `winget`).
-4. Optional: run `INSTALL_AI_WINDOWS.bat` for `faster-whisper` speech recognition. Skip if already installed under Python 3.12.
-5. Run `START_WINDOWS.bat`; open <http://127.0.0.1:8765> if the browser does not start.
-6. **Optional Rust Core:** install the stable Rust toolchain using [rustup](https://rustup.rs/) and run `BUILD_RUST_WINDOWS.bat`. This builds a native scanner into `tools/cliptora-scanner.exe`. It is not needed for basic operation.
-7. Select the source footage folder → **Scan** → **Analyze** → **Create selection** → review clips → **Export MP4**.
-
-Since v0.1.6, analysis progress is saved after each file in `project.json`. If the app closes or Windows restarts, re-open the app and click **Analyze / Continue**; completed files are skipped. Failed videos remain visible and can be retried. CPU threads can be limited to avoid saturating your computer; this does **not** cap all OS memory usage.
-
-Since v0.1.4, rescanning an unchanged folder keeps previously selected clips and their edits. Changed or removed source files invalidate only their own clips; changed AI settings trigger reanalysis. Files analyzed before v0.1.4 will require one cache refresh because the old version did not record analysis settings.
-
-The first Whisper transcription may download model weights from the Internet. Afterwards the model can run locally. For dialogue scoring you can optionally install [Ollama](https://ollama.com/) and download a model; it is **not required**.
-
-Read [docs/INSTALL_RU.md](docs/INSTALL_RU.md) for Russian instructions.
-
-### Manual server start
+Запуск локального сервера:
 
 ```powershell
 py -3.12 server.py
 ```
 
-This script uses Python's standard-library HTTP server and binds to `127.0.0.1` only. `FFmpeg` and `ffprobe` must be on PATH (or in `tools/`).
+Для Rust-сканера установите [rustup](https://rustup.rs/) и запустите `BUILD_RUST_WINDOWS.bat`. Без Rust программа продолжит работать через Python. Rust ускоряет только инвентаризацию файлов, **не** работу Whisper или кодирование FFmpeg.
 
-## Rust Core (optional)
+Первый запуск `faster-whisper` может потребовать загрузки весов модели. Без установки AI-пакета доступна базовая работа со звуком и движением.
 
-The Rust scanner is an independent, dependency-free binary located at `rust/scanner/`.
-It walks the chosen footage directory and returns only video paths, sizes and modification times in JSON-lines format. It does **not** decode footage, replace FFmpeg, or accelerate Whisper. For new/changed video files, `ffprobe` still dominates scan time on many setups.
+</details>
 
-```powershell
-cargo test --manifest-path rust/scanner/Cargo.toml
-cargo build --release --locked --manifest-path rust/scanner/Cargo.toml
-```
+**Подробная инструкция:** [Установка на Windows](docs/INSTALL_RU.md).
 
-On Windows use `BUILD_RUST_WINDOWS.bat` to copy the compiled binary to `tools/`. If the binary is unavailable or crashes, CLIPTORA automatically uses Python and keeps all existing library state. `CLIPTORA_SCANNER` can override the executable path. Never set it to an untrusted binary. Rust is optional for contributors as well as users.
+## 🔒 Конфиденциальность и файлы проекта
 
-## Privacy, storage and migration
+- Исходные видео читаются по месту и не должны перезаписываться программой.
+- Проекты, предпросмотры и экспорт сохраняются локально в `%USERPROFILE%\CLIPTORA\` (или ранее использовавшейся папке проекта).
+- **По умолчанию видео не отправляются в облако.** Загрузка моделей при первичной установке возможна.
+- Интерфейс работает на `127.0.0.1:8765`. **Не открывайте этот порт в Интернет.**
+- Перед экспериментами с черновиком сохраняйте резервную копию `project.json`.
 
-- Sources are read in place and never intentionally overwritten or deleted.
-- New project state and exports are under `%USERPROFILE%\CLIPTORA\` (`project.json`, `renders/`, `cache/`).
-- If you already have a project from **Zeihos AI Montage Studio** and the new CLIPTORA data folder does not contain a project, CLIPTORA keeps using the legacy data directory to avoid copying large caches and breaking existing project paths.
-- By default, **no footage is uploaded to a cloud service**. Whisper weights may download once, and Ollama is expected on `127.0.0.1`. Do not expose port 8765 to public networks.
-- Do not commit footage, exported videos, the local project database or model files to GitHub.
+## 🧭 Планы развития
 
-## Roadmap
+- [x] Поиск звуковых реакций и диалоговых сцен
+- [x] Варианты автоматической подборки и отмена применения
+- [x] Локальный предпросмотр, MP4 и субтитры SRT
+- [x] Проверка качества по ручной разметке
+- [x] Необязательный Rust-сканер и восстановление очереди
+- [ ] Более точное понимание игровых событий и контекста шуток
+- [ ] Полноценная многодорожечная монтажная шкала
+- [ ] Установщик Windows `.exe`
+- [ ] Тестирование на библиотеке около 250 ГБ
 
-- [x] Local scan, audio analysis, review and MP4 export
-- [x] Optional speech transcription, optional Ollama dialogue scoring
-- [x] Windows launchers with explicit Python 3.12
-- [ ] Stronger game-event and joke-context detection
-- [x] Text-based near-duplicate shortlist filtering and transparent ranking hints
-- [ ] Side-by-side visual clip comparison and event-aware semantic ranking
-- [x] Human reference moments and local interval-overlap quality reports (not a measure of humour)
-- [ ] Better zooms, captions, SFX and meme templates
-- [x] Optional Rust file inventory with automatic Python fallback
-- [ ] Long-library benchmarks and fault-tolerant job queue
-- [ ] Real desktop packaging, GPU acceleration and hardware detection
-- [ ] Multitrack non-linear editing timeline
+## 📚 Документация
 
-See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped features.
+| Раздел | Ссылка |
+| :--- | :--- |
+| Установка на Windows | [docs/INSTALL_RU.md](docs/INSTALL_RU.md) |
+| Возможности и ограничения | [docs/FEATURE_GUIDE.md](docs/FEATURE_GUIDE.md) |
+| Как устроен проект | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Тестирование | [docs/TESTING.md](docs/TESTING.md) |
+| История обновлений | [CHANGELOG.md](CHANGELOG.md) |
+| Как помочь проекту | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Безопасность | [SECURITY.md](SECURITY.md) |
 
-## Contributing
+## 🤝 Разработка и обратная связь
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
+Нашли ошибку или хотите предложить функцию? Создайте [обращение (Issue)](https://github.com/Zeihos/CLIPTORA/issues/new/choose). Перед публикацией логов удалите личные пути, записи голоса и приватные данные. Pull Request приветствуются — [правила участия](CONTRIBUTING.md).
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.15-alpha.
+CLIPTORA распространяется по лицензии **[MIT](LICENSE)**. Лицензии FFmpeg, моделей и других сторонних компонентов определяются отдельно.
+
+<p align="center">
+  <img src="assets/cliptora-icon.svg" width="52" alt="Знак CLIPTORA"><br>
+  <sub>CLIPTORA · Сделано <a href="https://github.com/Zeihos">Zeihos</a> · Разработка продолжается</sub>
+</p>

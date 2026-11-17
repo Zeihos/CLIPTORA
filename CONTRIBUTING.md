@@ -1,13 +1,35 @@
-# Contributing to CLIPTORA
+# Участие в разработке CLIPTORA
 
-Thanks for helping improve CLIPTORA. This is experimental local-first software.
+Спасибо, что хотите помочь проекту! CLIPTORA — экспериментальный локальный видеоредактор с открытым кодом.
 
-- Open an issue for bugs, incorrect clip selection, problems with FFmpeg/Whisper, or a feature proposal.
-- Do **not** upload original footage, recorded conversations, API keys or personal file paths in issues.
-- Use Python 3.12. Prefer small changes with automated tests and readable error messages.
-- Before submitting a PR, run the checks in [Testing](docs/TESTING.md), add regression tests for behavior changes, and report any skipped tests.
-- Keep the app localhost-only. Do not make cloud uploads a default or silently change user data directories.
-- Document dependencies and their licenses when adding them. Prefer open-source local processing and explain optional networking clearly.
-- PRs should include a short summary, steps to reproduce/test, and screenshots when UI changes are relevant.
+## Как помочь
 
-See [Architecture](docs/ARCHITECTURE.md) and [Security](SECURITY.md) for system boundaries and vulnerability reporting.
+- Сообщить об ошибке через [Issues](https://github.com/Zeihos/CLIPTORA/issues/new/choose).
+- Предложить улучшение интерфейса, алгоритма отбора или экспорта.
+- Исправить ошибку и отправить Pull Request.
+- Улучшить русскую документацию.
+
+## Перед отправкой Pull Request
+
+1. Сделайте отдельную ветку от `main`.
+2. Используйте **Python 3.12**; Rust Core остаётся необязательным.
+3. Для изменения логики добавьте тесты и запустите:
+
+```powershell
+py -3.12 -m unittest discover -s tests -v
+py -3.12 -m compileall -q .
+```
+
+4. Если изменяете Rust Core, дополнительно запустите:
+
+```powershell
+cargo test --locked --manifest-path rust/scanner/Cargo.toml
+```
+
+5. Объясните, что изменено, как проверяли, и приложите скриншоты **без личных данных**, если меняли интерфейс.
+
+Не добавляйте в репозиторий видеозаписи, приватные разговоры, токены, `project.json`, кэш моделей, экспортированные ролики или абсолютные пути к файлам.
+
+Сохраняйте локальный режим работы и совместимость со старыми проектами. Для изменений с сетевыми запросами явно документируйте, какие данные передаются.
+
+Дополнительно: [архитектура](docs/ARCHITECTURE.md), [тестирование](docs/TESTING.md), [безопасность](SECURITY.md).
