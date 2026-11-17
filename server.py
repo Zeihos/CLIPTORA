@@ -197,8 +197,24 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_blob({'error':str(e)},code=500)
 
 
+def configure_console_output():
+    """Avoid Windows legacy-codepage crashes on Russian log lines.
+
+    Frozen console processes can be launched with redirected stdout/stderr,
+    which Windows may configure as cp1252 even on non-English systems.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, 'reconfigure', None)
+        if reconfigure:
+            try:
+                reconfigure(encoding='utf-8', errors='replace')
+            except (OSError, ValueError):
+                pass
+
+
 def main():
     global studio
+    configure_console_output()
     parser=argparse.ArgumentParser()
     parser.add_argument('--work-dir',default=None)
     parser.add_argument('--port',type=int,default=8765)
