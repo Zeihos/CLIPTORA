@@ -30,6 +30,7 @@ from export_quality import make_export_filters, validate_export_quality
 from montage_preview import preview_segments, preview_signature
 from pacing import plan_pacing, validate_pacing
 from quality_benchmark import evaluate_quality, MAX_REFERENCES
+from runtime_paths import tool_directories
 
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
@@ -49,10 +50,10 @@ def locate_ffmpeg(binary):
     path = shutil.which(binary)
     if path:
         return path
-    here = Path(__file__).resolve().parent
-    for candidate in (here / 'tools' / f'{binary}.exe', here / 'tools' / binary):
-        if candidate.is_file():
-            return str(candidate)
+    for directory in tool_directories():
+        for candidate in (directory / f'{binary}.exe', directory / binary):
+            if candidate.is_file():
+                return str(candidate)
     return None
 
 

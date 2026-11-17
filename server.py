@@ -13,8 +13,9 @@ from urllib.parse import urlparse, parse_qs
 from engine import Studio
 from export_quality import validate_export_quality
 from pacing import validate_pacing
+from runtime_paths import resource_root
 
-HERE=Path(__file__).resolve().parent
+HERE=resource_root()
 studio=None
 
 

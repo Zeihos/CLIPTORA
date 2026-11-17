@@ -42,3 +42,8 @@ Workflow [`CLIPTORA CI`](../.github/workflows/ci.yml) запускается п�
 Указывай ОС, версии Python/Rust/FFmpeg, команду, количество успешных/ошибочных/пропущенных тестов и шаги воспроизведения. Не прикладывай личные видеозаписи, стенограммы, локальные пути и секреты. Инструкция по Pull Request — в [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 Чеклист до публичной стабильной версии: [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).
+
+
+### Windows Portable (GitHub Actions)
+
+Workflow [`Windows Portable EXE`](../.github/workflows/windows-portable.yml) собирает Rust Core, упаковывает приложение PyInstaller в `dist/CLIPTORA/`, запускает smoke-тест **реального** `CLIPTORA.exe` и публикует ZIP-артефакт. Установленный Python в CI нужен только для сборки и тестирования, конечному пользователю — нет. Для локальной сборки на Windows: `cargo build --release --locked --manifest-path rust/scanner/Cargo.toml`, затем `python -m pip install pyinstaller==6.16.0`, затем `python -m PyInstaller --clean --distpath dist --workpath build packaging/cliptora.spec`.

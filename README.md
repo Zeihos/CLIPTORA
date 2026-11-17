@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/Zeihos/CLIPTORA/actions/workflows/ci.yml"><img alt="Проверки Windows и Linux" src="https://github.com/Zeihos/CLIPTORA/actions/workflows/ci.yml/badge.svg" /></a>
-  <img alt="Версия 0.1.15 Alpha" src="https://img.shields.io/badge/version-0.1.15--alpha-9585FF" />
+  <img alt="Версия 0.1.16 Alpha" src="https://img.shields.io/badge/version-0.1.16--alpha-9585FF" />
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" />
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%2F%2011-2A4365?logo=windows&logoColor=white" />
   <a href="LICENSE"><img alt="Лицензия MIT" src="https://img.shields.io/badge/license-MIT-56C6DA" /></a>
@@ -29,7 +29,14 @@
 ---
 
 > [!IMPORTANT]
-> **CLIPTORA 0.1.15 Alpha** — экспериментальная версия для **поиска и ручной доработки предложенных сцен**. Это пока не автономный профессиональный монтажёр: программа не гарантирует распознавания шуток, побед, эмоций и игровых событий. Отдельного установщика `.exe` ещё нет; масштабный стресс-тест на **250 ГБ** не проведён.
+> **CLIPTORA 0.1.16 Alpha** — экспериментальная версия для **поиска и ручной доработки предложенных сцен**. Это пока не автономный профессиональный монтажёр: программа не гарантирует распознавания шуток, побед, эмоций и игровых событий. Экспериментальная Portable-сборка `.exe` уже доступна через GitHub Actions (это не установщик); масштабный стресс-тест на **250 ГБ** не проведён.
+
+
+### Windows Portable EXE (экспериментально)
+
+Для тех, кто не хочет устанавливать Python: GitHub Actions собирает архив **CLIPTORA-Windows-Portable** с `CLIPTORA.exe`, локальным интерфейсом и Rust Core. Это **не полностью автономный редактор**: для видео по-прежнему требуется FFmpeg/FFprobe, а `faster-whisper` в Portable не включён.
+
+**[Скачать Portable через GitHub Actions](https://github.com/Zeihos/CLIPTORA/actions/workflows/windows-portable.yml)** · [Инструкция на русском](docs/INSTALL_PORTABLE_RU.md). Не отделяйте `.exe` от папки `_internal`.
 
 ## ✦ Зачем нужна CLIPTORA
 
@@ -39,7 +46,7 @@
 
 ## ⚡ Быстрый запуск
 
-**Понадобится:** Windows 10/11, **Python 3.12**, **FFmpeg** и **FFprobe**. Rust и ИИ-модели — по желанию.
+**Для запуска из исходников понадобится:** Windows 10/11, **Python 3.12**, **FFmpeg** и **FFprobe**. Rust и ИИ-модели — по желанию.
 
 1. Скачай репозиторий через **[Code → Download ZIP](https://github.com/Zeihos/CLIPTORA/archive/refs/heads/main.zip)** и распакуй в отдельную папку **вне папки с исходными видео**.
 2. Установи [Python 3.12](https://www.python.org/downloads/) и запусти **`SETUP_WINDOWS.bat`** — он проверит Python и FFmpeg (при наличии `winget` может предложить установку FFmpeg).
@@ -113,7 +120,7 @@
 | :-- | :-- |
 | ✅ Реализовано | Локальный анализ, подборки, ручная правка, предпросмотр и MP4/SRT |
 | 🧪 Экспериментально | Отбор кульминаций, оценка диалогов, качество автоматических нарезок |
-| 🛠️ В планах | Самостоятельный Windows `.exe`, более гибкий таймлайн, эффекты, измерение скорости на больших библиотеках |
+| 🛠️ В планах | Полноценный установщик Windows, более гибкий таймлайн, эффекты, измерение скорости на больших библиотеках |
 
 Никаких неподтверждённых процентов готовности или обещаний автоматического монтажа «как у профессионала» — развитие проекта фиксируется в [истории изменений](CHANGELOG.md).
 

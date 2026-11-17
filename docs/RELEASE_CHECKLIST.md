@@ -31,3 +31,5 @@ py -3.12 -m compileall -q .
 Для Rust: `cargo test --locked --manifest-path rust/scanner/Cargo.toml`.
 
 Подробный сценарий ручной проверки — в [TESTING.md](TESTING.md). Пока незакрытые пункты остаются открытыми, проект честно обозначается как **Alpha**.
+
+- [ ] Проверить Windows Portable артефакт GitHub Actions на реальной Windows-машине; FFmpeg/ffprobe добавить отдельно, проверить анализ/экспорт настоящей записи.

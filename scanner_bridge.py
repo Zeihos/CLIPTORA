@@ -10,6 +10,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
+from runtime_paths import resource_root, tool_directories
 
 VIDEO_EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 
@@ -19,11 +20,12 @@ def locate_scanner():
     override = os.environ.get('CLIPTORA_SCANNER')
     if override:
         return override
-    root = Path(__file__).resolve().parent
+    root = resource_root()
     exe = 'cliptora-scanner.exe' if os.name == 'nt' else 'cliptora-scanner'
-    for candidate in (root / 'tools' / exe,
-                      root / 'rust' / 'scanner' / 'target' / 'release' / exe,
-                      root / 'rust' / 'scanner' / 'target' / 'debug' / exe):
+    candidates = [directory / exe for directory in tool_directories()]
+    candidates.extend((root / 'rust' / 'scanner' / 'target' / 'release' / exe,
+                       root / 'rust' / 'scanner' / 'target' / 'debug' / exe))
+    for candidate in candidates:
         if candidate.is_file():
             return str(candidate)
     return None

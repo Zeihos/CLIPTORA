@@ -1,28 +1,25 @@
-# История изменений CLIPTORA
+# Changelog
 
-Подробный журнал разработки, начиная с последних версий. **Все версии ниже — Alpha**, а не стабильные релизы.
+Changes are listed newest first. CLIPTORA is alpha software; see README for current capabilities.
 
-| Версия | Основное изменение |
-| :-- | :-- |
-| **0.1.15** | Эталонные моменты, Precision / Recall / F1 для сравнения автоматической нарезки |
-| **0.1.14** | Адаптивные границы кульминаций и реакций |
-| **0.1.13** | Режимы темпа монтажа и сокращение тихих пауз |
-| **0.1.12** | MP4-предпросмотр единого монтажа |
-| **0.1.11** | Нормализация громкости и мягкие переходы |
-| **0.1.10** | Три варианта подборки и история отмены |
+## 0.1.16 Alpha — Windows Portable (2026-11-18)
 
-Ниже сохранён полный технический журнал предыдущих изменений; исторические записи могут содержать английский текст.
+- Добавлена автоматическая Windows-сборка PyInstaller **CLIPTORA.exe** в GitHub Actions; бинарник распространяется в виде артефакта с папкой `_internal`.
+- Встроены локальный веб-интерфейс, SVG и нативный Rust-сканер. Запуск через EXE не требует установленного Python.
+- Разделены пути к встроенным ресурсам приложения и пользовательским инструментам `tools/`; внешние `ffmpeg.exe` и `ffprobe.exe` по-прежнему необходимы для обработки видео.
+- Добавлены smoke-тест настоящего `.exe`, тесты путей и русскоязычная инструкция Portable. В базовом Portable отсутствует `faster-whisper`.
 
-## Не выпущено — инфраструктура и надёжность
+## Unreleased — обслуживание публичного репозитория
 
-- Усилена проверка локального `Host` и корректности `Content-Length` в HTTP API.
-- Исправлена выдача полного видео без `Range` и обратные диапазоны запроса (`416`).
-- Установщик Windows не сообщает об успешной настройке без доступного FFmpeg/FFprobe.
-- Добавлены проверки ссылок, SVG и HTTP-сервера, а также чеклист перед стабильным релизом.
+- Локальный HTTP-сервер проверяет `Host` для защиты от DNS rebinding; отбрасывает некорректный `Content-Length`.
+- Исправлена выдача полного видео без заголовка `Range` и обработка обратных диапазонов (`416`).
+- Windows-проверка окружения больше не сообщает об успешной готовности, если FFmpeg/FFprobe недоступны.
+- Добавлены тесты HTTP-безопасности, ссылок в документации и SVG-ресурсов, а также чеклист перед стабильным релизом.
+- Исправлено правило `.gitignore`, мешавшее добавлять исходники TypeScript (`*.ts`).
 
-Версия приложения остаётся `0.1.15-alpha`.
+Эти изменения **не являются выпуском новой версии приложения**. Версия остаётся `0.1.15-alpha`.
 
-## 0.1.15 Alpha — manual reference benchmarks (2026-11-17)
+## 0.1.15-alpha
 
 - Introduce independent human-annotated highlight windows, stored in local `project.json` without replacing or editing source videos and the current montage draft.
 - Compare the current selection and all three alternative plan variants against the annotated moments using reproducible one-to-one interval matching at IoU >= 0.30. Report Precision, Recall, F1, average IoU, missed references, matched pairs and the number of excluded unannotated-source clips.
@@ -31,7 +28,7 @@
 - Preserve references after restart and incremental rescan of unchanged recordings; invalidate references for changed or removed videos, or when changing the footage directory. Mark stale plan previews invalid after reference changes.
 - Add deterministic matching, integration, persistence, validation, API and library invalidation tests. **This is not AI model training or a proof of comedic quality.** The 250 GB benchmark and standalone Windows `.exe` remain unfinished.
 
-## 0.1.14 Alpha — adaptive reaction context (2026-11-17)
+## 0.1.14-alpha
 
 - Replace fixed audio-reaction windows with **bounded adaptive context**. Audio aftershocks, sustained visual activity and nearby replies can extend candidate end times; nearby setup speech can extend the beginning.
 - Limit audio-reaction candidates to **20 seconds** and keep all windows within media boundaries. Preserve established manual-edit and source-file safeguards.
@@ -39,7 +36,7 @@
 - Reuse the existing RMS, motion and transcript cache: no new speech model, no footage upload, no forced reanalysis. Manual review is still required.
 - Add regression tests for reaction tails, dialogue responses, static loud music, motion, malformed timestamps and unchanged source metadata. Checked on a real ~5:48 gameplay MP4 and a synthetic 20-hour audio-envelope lookup. Full 250 GB stress testing has **not** been performed.
 
-## 0.1.13 Alpha — conservative dialogue pacing (2026-11-10)
+## 0.1.13-alpha
 
 - Introduce three export-only pacing options: `normal` (default/unchanged), `dynamic`, and `fast`.
 - Shorten only verified quiet intervals **between** existing Whisper speech segments. Require 0.5s audio data, preserve speech padding, and avoid deleting gaps containing audio spikes or significant visual activity (when motion analysis is available).
@@ -48,7 +45,7 @@
 - Add test coverage for music/reactions, gameplay motion, missing transcripts, fast vs. dynamic, safe defaults, original-draft preservation, preview/final rendering, subtitles, and HTTP input validation.
 - This is a **conservative heuristic**, not true speech or comedy understanding. Not stress-tested on 250 GB; do not treat it as a guarantee of better edits.
 
-## 0.1.12 Alpha — composed montage preview (2026-11-09)
+## 0.1.12-alpha
 
 - Add opt-in 480p MP4 preview of up to the **first 120 seconds** of the selected draft, in editor order. It uses the normal FFmpeg audio/video effects and zoom, with faster encoding.
 - Provide a dedicated browser player with range-based seeking and stale-preview checks after edits or media changes.
@@ -56,7 +53,7 @@
 - Disable playback when the configured normalization/fades differ from the rendered preview; require explicit regeneration.
 - Add preview timeline planning, fingerprint, FFmpeg integration and HTTP streaming regression tests.
 
-## 0.1.11 Alpha — export quality and failure safety (2026-11-09)
+## 0.1.11-alpha
 
 - Add opt-in per-clip FFmpeg loudness normalization targeting -16 LUFS / -1.5 dBTP. Warn that single-pass processing may amplify quiet backgrounds and is not whole-program measurement.
 - Add optional 150/300 ms audio and video fade-through-black around cuts, without overlap or subtitle timeline shifts; shrink fades for very short clips. Existing hard cuts remain the default.
@@ -64,7 +61,7 @@
 - Store export quality options in per-render JSON sidecar, and use collision-resistant output filenames.
 - Add unit and FFmpeg integration regression tests; no new Python dependencies.
 
-## 0.1.10 Alpha — reversible alternative plans (2026-11-09)
+## 0.1.10-alpha
 
 - Preview three heuristic edit selections (balanced, dialogue-heavy, action-heavy) without writing to project.json or replacing manual clip edits.
 - Inspect proposed scenes in the existing local media player before applying a candidate plan.
@@ -73,7 +70,7 @@
 - Reject stale preview tokens if any persisted project change occurred after generating the comparison, and prevent apply while export or analysis is running.
 - Preset adjustments are explained heuristic weightings, **not** AI understanding of comedy. The local 250 GB library has not been stress-tested.
 
-## 0.1.9-alpha — 2026-11-08
+## 0.1.9-alpha
 
 - Add explainable quality ranking for dialogue context, a small penalty for isolated one-word shouts, and modest preference for setup + response.
 - Filter near-identical informative transcript-based candidates across recordings, preserving distinct punchlines and nonverbal reactions.
@@ -82,7 +79,7 @@
 - Add regression tests for candidate comparisons, source overlaps, invalid scores and persisted selection summary.
 - This remains lexical/heuristic ranking; no semantic video understanding or guaranteed comedic timing.
 
-## 0.1.8 Alpha — dialogue context and natural endings
+## 0.1.8-alpha
 
 - Add a deterministic transcript-context planner. It keeps preceding setup lines, a ranked/reaction-adjacent sentence, its reply and an ending beat rather than simply adding a fixed 3 seconds around speech groups.
 - Use existing Ollama `humor` scores (when configured) and corroborated audio peaks as **ranking hints**, not reliable joke or event recognition.
@@ -91,7 +88,7 @@
 - Build new selections directly from saved 0.1.7 analysis: no reanalysis is required, but manually reviewed drafts must be backed up before using Create selection.
 - Add regression checks for setup, payoff, response, reaction tails, boundaries, long dialogs and engine integration.
 
-## 0.1.7 Alpha — explainable reaction highlights
+## 0.1.7-alpha
 
 - Find *relative* audio spikes compared with the preceding six seconds rather than simply selecting the loudest recording moments.
 - Filter isolated single-bucket audio anomalies unless nearby speech or visual movement offers corroborating context.
@@ -101,7 +98,7 @@
 - Add deterministic regression tests covering constant music, audio glitches, dialogue, motion, silence and media boundaries.
 - Caution: audio bursts do not imply humor, a particular emotion, a game kill, or even a human voice; every suggestion needs review.
 
-## 0.1.6 Alpha — durable analysis queue
+## 0.1.6-alpha
 
 - Persistent per-file analysis queue with `pending`, `running`, `complete` and `failed` states in local `project.json`.
 - Restart recovery: interrupted files are returned to pending; completed video analysis is reused.
@@ -111,9 +108,7 @@
 - Source file safety check before analyzing, requiring a rescan if it changed.
 - Keeps optional Rust scanner and existing v0.1.5 project files compatible.
 
-# Changelog
-
-## 0.1.5-alpha — 2026-11-08
+## 0.1.5-alpha
 
 - Add optional no-dependency Rust Core metadata scanner for local video libraries.
 - Automatically fall back to the existing Python scan when Rust is missing, fails, or outputs invalid metadata.
@@ -122,7 +117,7 @@
 - Rust only enumerates files; FFmpeg/ffprobe, AI inference, clip editing and export remain in Python.
 - No verified performance claims for a 250 GB library yet.
 
-## 0.1.4-alpha — 2026-11-08
+## 0.1.4-alpha
 
 - Preserve media IDs, cached analysis and manually reviewed clips across rescans when source recordings are unchanged.
 - Replace only the changed source entries and discard only references to changed or removed recordings.
@@ -131,7 +126,7 @@
 - Add regression tests for rescan preservation, changed recordings and resumable analysis.
 - Existing 0.1.3 analyzed files without a settings signature are safely treated as needing one analysis pass.
 
-## 0.1.3-alpha — 2026-11-08
+## 0.1.3-alpha
 
 - Renamed the application to **CLIPTORA** in the browser UI, window title, launcher scripts and export filenames.
 - Added project icon, GitHub banner, public documentation and source license.

@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.15-alpha — human reference moments and measurable highlight-selection quality benchmarks.
+0.1.16-alpha — experimental portable Windows EXE with bundled Rust scanner and local UI.
