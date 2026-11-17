@@ -22,6 +22,7 @@ from pathlib import Path
 
 from scanner_bridge import discover, locate_scanner
 from highlight_signals import detect_audio_reactions
+from climax_timing import ReactionContext
 from dialogue_context import build_dialogue_windows
 from candidate_selection import select_best_clips
 from plan_variants import create_variants
@@ -244,6 +245,7 @@ def generate_candidates(file):
     motion = a.get('motion_levels', [])
     segs = a.get('transcript', [])
     reactions = detect_audio_reactions(levels, d, segs, motion)
+    context = ReactionContext(d, levels, motion, segs)
     candidates = []
     for window in build_dialogue_windows(segs, d, reactions):
         start, end = window['start'], window['end']
@@ -255,24 +257,31 @@ def generate_candidates(file):
         if humor >= 3:
             reasons.append('контекстная оценка речи')
         if matching:
-            reasons.extend(r for r in max(matching, key=lambda h: h['strength'])['reasons']
-                           if r not in reasons)
+            strongest = max(matching, key=lambda h: h['strength'])
+            reasons.extend(r for r in strongest['reasons'] if r not in reasons)
+            if {'речь рядом', 'движение в кадре'}.issubset(strongest['reasons']):
+                score = min(100, score + 5)
+                reasons.append('совпадение звука, речи и движения')
         candidates.append({'start': start, 'end': end, 'score': round(score, 1),
                            'label': label[:160], 'type': 'dialogue', 'reasons': reasons})
     # Local relative acoustic changes; constant loud music alone is not a reaction.
     for hit in sorted(reactions, key=lambda x: -x['strength']):
         mid = hit['time']
-        start, end = max(0, mid - 4.5), min(d, mid + 6.5)
+        start, end, context_reasons = context.window(mid)
         if end-start < 3:
             continue
         if any(max(0, min(end,c['end'])-max(start,c['start'])) > .45*(end-start)
                for c in candidates):
             continue
+        reasons = [*hit['reasons'], *context_reasons]
         score = min(100, clip_score(start, end, levels, motion) + hit['strength']*14)
+        if {'речь рядом', 'движение в кадре'}.issubset(hit['reasons']):
+            score = min(100, score + 5)
+            reasons.append('совпадение звука, речи и движения')
         candidates.append({'start': round(start, 2), 'end': round(end, 2),
                            'score': round(score, 1),
                            'label': 'Резкая звуковая реакция (проверь вручную)',
-                           'type': 'reaction', 'reasons': hit['reasons']})
+                           'type': 'reaction', 'reasons': reasons})
     if motion:
         limit = max(0.022, _percentile(motion, .88))
         ranked = sorted([(v, i*2.) for i,v in enumerate(motion) if v >= limit], reverse=True)

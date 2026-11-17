@@ -13,8 +13,17 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.13**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Alpha 0.1.14**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
+
+### Адаптивная длительность кульминаций (v0.1.14)
+
+При создании новой подборки CLIPTORA учитывает, что реакция может продолжаться дольше одного резкого звука: теперь предложенные фрагменты иногда расширяются до конца аудиовсплеска, заметного движения или реплики собеседника. Если перед пиком была короткая подводка, она тоже может попасть в предложение. Длина звукового фрагмента ограничена 20 секундами.
+
+- При совпадении звукового пика, речи и движения программа немного повышает **эвристический** приоритет и показывает причину в блоке «Основание». Это не распознавание убийства, победы, шутки, смеха или эмоции.
+- Вся функция работает по существующему локальному анализу: заново обрабатывать неизменённые видео не нужно.
+- Чтобы увидеть новые предложения, заново сформируйте подборку или воспользуйтесь сравнением трёх вариантов. **Не применяйте новую подборку поверх ручных правок без проверки**: сначала сохраните резервную копию `project.json` или используйте историю отмены.
+- Условия разных игр и микрофонов различаются. Сцены нужно вручную проверить на качество и подправить границы при необходимости. Стресс-тест на 250 ГБ ещё не проводился.
 
 ### Темп монтажа и тихие паузы (v0.1.13)
 
@@ -40,7 +49,7 @@
 | Area | Supported in the alpha |
 | --- | --- |
 | Library | Recursively scan a user-selected folder of videos |
-| Analysis | Relative audio reaction peaks and optional visual motion; optional local speech recognition via `faster-whisper` |
+| Analysis | Relative audio reaction peaks, bounded post-reaction context and optional visual motion; optional local speech recognition via `faster-whisper` |
 | Context | Keep surrounding dialogue, rank candidates by reviewable context signals and manually edit clip start/end |
 | AI | Optional **local** Ollama for scoring dialogue (quality is experimental) |
 | Review | Browser preview, human-readable selection reasons, enable/disable, adjust clips and mark subtle zooms |
@@ -118,7 +127,7 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.11-alpha.
+**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.14-alpha.
 
 ## Compare three edit drafts safely (v0.1.10)
 

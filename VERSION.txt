@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.13-alpha — opt-in transcript-backed silent-gap trimming with safe pacing presets.
+0.1.14-alpha — adaptive reaction tails, nearby dialogue preservation and multimodal scoring hints.

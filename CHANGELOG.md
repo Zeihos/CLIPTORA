@@ -1,3 +1,11 @@
+# 0.1.14 Alpha — adaptive reaction context (2026-11-17)
+
+- Replace fixed audio-reaction windows with **bounded adaptive context**. Audio aftershocks, sustained visual activity and nearby replies can extend candidate end times; nearby setup speech can extend the beginning.
+- Limit audio-reaction candidates to **20 seconds** and keep all windows within media boundaries. Preserve established manual-edit and source-file safeguards.
+- Give a modest extra ranking hint when a detected audio peak also coincides with speech and movement. Show it as "совпадение звука, речи и движения" in review reasons rather than claiming event recognition.
+- Reuse the existing RMS, motion and transcript cache: no new speech model, no footage upload, no forced reanalysis. Manual review is still required.
+- Add regression tests for reaction tails, dialogue responses, static loud music, motion, malformed timestamps and unchanged source metadata. Checked on a real ~5:48 gameplay MP4 and a synthetic 20-hour audio-envelope lookup. Full 250 GB stress testing has **not** been performed.
+
 # 0.1.13 Alpha — conservative dialogue pacing (2026-11-10)
 
 - Introduce three export-only pacing options: `normal` (default/unchanged), `dynamic`, and `fast`.
