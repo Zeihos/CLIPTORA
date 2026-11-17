@@ -25,11 +25,16 @@ if errorlevel 1 goto manual_ffmpeg
 echo [INFO] Installing FFmpeg with winget...
 winget install --id Gyan.FFmpeg --exact --source winget --accept-source-agreements --accept-package-agreements
 if errorlevel 1 goto manual_ffmpeg
-echo [INFO] Reopen your terminal after winget setup, then run this file again.
-goto ready
+echo [WARN] Installation requested. Open a new terminal and run this setup again.
+echo [WARN] Setup is not complete until both ffmpeg.exe and ffprobe.exe are available.
+pause
+exit /b 1
 :manual_ffmpeg
-echo [HELP] Download FFmpeg and place ffmpeg.exe and ffprobe.exe in the tools folder.
-echo [HELP] Or install with: winget install Gyan.FFmpeg
+echo [ERROR] FFmpeg and FFprobe are required but were not found.
+echo [HELP] Download both executables and place them in the tools folder.
+echo [HELP] Or install with: winget install --id Gyan.FFmpeg --exact
+pause
+exit /b 1
 :ready
 echo.
 echo [INFO] Optional speech AI installer: INSTALL_AI_WINDOWS.bat

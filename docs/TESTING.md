@@ -40,3 +40,5 @@ Workflow [`CLIPTORA CI`](../.github/workflows/ci.yml) запускается п�
 ## Как сообщать о результатах
 
 Указывай ОС, версии Python/Rust/FFmpeg, команду, количество успешных/ошибочных/пропущенных тестов и шаги воспроизведения. Не прикладывай личные видеозаписи, стенограммы, локальные пути и секреты. Инструкция по Pull Request — в [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+Чеклист до публичной стабильной версии: [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).

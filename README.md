@@ -121,7 +121,7 @@
 
 Нашёл ошибку или придумал улучшение? Создай [Issue](https://github.com/Zeihos/CLIPTORA/issues/new/choose) или предложи [Pull Request](https://github.com/Zeihos/CLIPTORA/pulls). Все основные инструкции и шаблоны доступны на русском.
 
-**Документация:** [установка](docs/INSTALL_RU.md) · [функции](docs/FEATURE_GUIDE.md) · [архитектура](docs/ARCHITECTURE.md) · [тесты](docs/TESTING.md) · [история версий](CHANGELOG.md) · [вклад](CONTRIBUTING.md)
+**Документация:** [установка](docs/INSTALL_RU.md) · [функции](docs/FEATURE_GUIDE.md) · [архитектура](docs/ARCHITECTURE.md) · [тесты](docs/TESTING.md) · [подготовка релиза](docs/RELEASE_CHECKLIST.md) · [история версий](CHANGELOG.md) · [вклад](CONTRIBUTING.md)
 
 <p align="center">
   <sub>Разработка: <a href="https://github.com/Zeihos">Zeihos</a> · Исходный код: <a href="LICENSE">MIT</a> · FFmpeg и модели распространяются на условиях их собственных лицензий.</sub>

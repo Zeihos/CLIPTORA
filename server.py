@@ -38,8 +38,20 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _allow_local_host(self):
+        # Binding to 127.0.0.1 alone does not prevent DNS-rebinding through
+        # a malicious Host header. Only the editor's own loopback URL is valid.
+        allowed = {f'127.0.0.1:{self.server.server_port}',
+                   f'localhost:{self.server.server_port}'}
+        if self.headers.get('Host', '').lower() not in allowed:
+            self.send_blob({'error': 'Некорректный адрес локального сервера'}, code=403)
+            return False
+        return True
+
     def do_GET(self):
         try:
+            if not self._allow_local_host():
+                return
             parsed=urlparse(self.path)
             if parsed.path in ('/','/index.html'):
                 return self.send_blob((HERE/'web'/'index.html').read_bytes(),'text/html')
@@ -80,15 +92,19 @@ class Handler(BaseHTTPRequestHandler):
         size=path.stat().st_size
         r=self.headers.get('Range','')
         match=re.fullmatch(r'bytes=(\d+)-(\d*)',r.strip())
-        start=int(match.group(1)) if match else 0
-        if start>=size:
+        start = int(match.group(1)) if match else 0
+        requested_end = int(match.group(2)) if match and match.group(2) else None
+        if start >= size or (requested_end is not None and requested_end < start):
             self.send_response(416)
-            self.send_header('Content-Range',f'bytes */{size}')
+            self.send_header('Content-Range', f'bytes */{size}')
+            self.send_header('Content-Length', '0')
             self.end_headers()
             return
-        end=min(size-1,start+4*1024*1024-1)
-        if match and match.group(2):
-            end=min(end,int(match.group(2)))
+        # 200 means the complete representation. For byte-range requests,
+        # deliberately cap a single response at 4 MiB to support seeking.
+        end = min(size - 1, start + 4 * 1024 * 1024 - 1) if match else size - 1
+        if requested_end is not None:
+            end = min(end, requested_end)
         self.send_response(206 if match else 200)
         self.send_header('Content-Type',content_type)
         self.send_header('Accept-Ranges','bytes')
@@ -108,6 +124,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         try:
+            if not self._allow_local_host():
+                return
             origin=self.headers.get('Origin','')
             if origin:
                 host=self.headers.get('Host','')
@@ -116,7 +134,10 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_blob({'error':'Origin blocked'},code=403)
             if 'application/json' not in self.headers.get('Content-Type',''):
                 return self.send_blob({'error':'Expected JSON'},code=415)
-            length=int(self.headers.get('Content-Length','0'))
+            raw_length = self.headers.get('Content-Length', '')
+            if not raw_length.isascii() or not raw_length.isdecimal():
+                return self.send_blob({'error': 'Некорректный Content-Length'}, code=400)
+            length = int(raw_length)
             if length>1024*1024:
                 return self.send_blob({'error':'Request too large'},code=413)
             payload=json.loads(self.rfile.read(length) or b'{}')

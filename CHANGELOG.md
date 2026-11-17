@@ -13,6 +13,15 @@
 
 Ниже сохранён полный технический журнал предыдущих изменений; исторические записи могут содержать английский текст.
 
+## Не выпущено — инфраструктура и надёжность
+
+- Усилена проверка локального `Host` и корректности `Content-Length` в HTTP API.
+- Исправлена выдача полного видео без `Range` и обратные диапазоны запроса (`416`).
+- Установщик Windows не сообщает об успешной настройке без доступного FFmpeg/FFprobe.
+- Добавлены проверки ссылок, SVG и HTTP-сервера, а также чеклист перед стабильным релизом.
+
+Версия приложения остаётся `0.1.15-alpha`.
+
 ## 0.1.15 Alpha — manual reference benchmarks (2026-11-17)
 
 - Introduce independent human-annotated highlight windows, stored in local `project.json` without replacing or editing source videos and the current montage draft.
