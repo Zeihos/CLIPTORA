@@ -7,7 +7,7 @@ Optional Whisper and Ollama models are not part of this experimental build.
 """
 from pathlib import Path
 
-ROOT = Path(SPECPATH).resolve().parent.parent
+ROOT = Path(SPECPATH).resolve().parent
 SCANNER = ROOT / 'rust' / 'scanner' / 'target' / 'release' / 'cliptora-scanner.exe'
 if not SCANNER.is_file():
     raise FileNotFoundError('Build Rust Core first: cargo build --release --locked --manifest-path rust/scanner/Cargo.toml')

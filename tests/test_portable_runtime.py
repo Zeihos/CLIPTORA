@@ -23,8 +23,8 @@ class PortableRuntimeTests(unittest.TestCase):
             bundle = Path(folder) / '_internal'
             bundle.mkdir()
             with patch.object(sys, 'frozen', True, create=True), patch.object(sys, '_MEIPASS', str(bundle), create=True):
-                self.assertEqual(resource_root(), bundle)
-                self.assertEqual(tool_directories()[-1], bundle / 'tools')
+                self.assertEqual(resource_root(), bundle.resolve())
+                self.assertEqual(tool_directories()[-1], bundle.resolve() / 'tools')
 
     def test_portable_external_tools_take_precedence_over_bundled_copy(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -38,7 +38,7 @@ class PortableRuntimeTests(unittest.TestCase):
             (external / 'ffprobe.exe').write_bytes(b'external')
             with patch.object(sys, 'frozen', True, create=True), patch.object(sys, '_MEIPASS', str(bundle), create=True), patch.object(sys, 'executable', str(root / 'CLIPTORA.exe')):
                 with patch.object(engine.shutil, 'which', return_value=None):
-                    self.assertEqual(engine.locate_ffmpeg('ffprobe'), str(external / 'ffprobe.exe'))
+                    self.assertEqual(Path(engine.locate_ffmpeg('ffprobe')).resolve(), (external / 'ffprobe.exe').resolve())
 
     def test_scanner_uses_bundled_native_binary_when_frozen(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -49,7 +49,7 @@ class PortableRuntimeTests(unittest.TestCase):
             scanner.write_bytes(b'fake executable for discovery')
             with patch.dict(os.environ, {'CLIPTORA_SCANNER': ''}):
                 with patch.object(sys, 'frozen', True, create=True), patch.object(sys, '_MEIPASS', str(bundle), create=True), patch.object(sys, 'executable', str(root / 'CLIPTORA.exe')):
-                    self.assertEqual(scanner_bridge.locate_scanner(), str(scanner))
+                    self.assertEqual(Path(scanner_bridge.locate_scanner()).resolve(), scanner.resolve())
 
 
 if __name__ == '__main__':
