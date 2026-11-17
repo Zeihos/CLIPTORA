@@ -612,7 +612,7 @@ class Studio:
                 self.log('Все записи уже проанализированы с текущими настройками.')
                 return
             if not locate_ffmpeg('ffmpeg'):
-                raise RuntimeError('Не найден FFmpeg. См. УСТАНОВКА.txt')
+                raise RuntimeError('Не найден FFmpeg. См. docs/INSTALL_RU.md')
             threads = int(self.project['settings'].get('cpu_threads', 2))
             settings = self.project['settings'].copy()
         model = None
@@ -623,7 +623,7 @@ class Studio:
             model = WhisperModel(settings.get('whisper_model', 'small'), device='cpu',
                                  compute_type='int8', cpu_threads=threads, num_workers=1)
         elif settings.get('whisper'):
-            self.log('Whisper не установлен: распознавание речи пропущено. Смотрите УСТАНОВКА.txt')
+            self.log('Whisper не установлен: распознавание речи пропущено. Смотрите docs/INSTALL_RU.md')
 
         failed = 0
         total = len(todo)

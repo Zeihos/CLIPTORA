@@ -4,24 +4,34 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   tests:
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out sources
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Rust scanner tests
+      - name: Test Rust scanner
         run: cargo test --locked --manifest-path rust/scanner/Cargo.toml
       - name: Build optional Rust scanner
         run: cargo build --release --locked --manifest-path rust/scanner/Cargo.toml
-      - name: Compile Python
-        run: python -m py_compile engine.py server.py scanner_bridge.py highlight_signals.py dialogue_context.py candidate_selection.py plan_variants.py export_quality.py montage_preview.py pacing.py climax_timing.py quality_benchmark.py
-      - name: Unit tests
+      - name: Verify Python finds native scanner
+        run: python -c "import scanner_bridge; assert scanner_bridge.locate_scanner(), 'Rust scanner binary missing'"
+      - name: Compile Python sources
+        run: python -m compileall -q .
+      - name: Python regression tests
         run: python -m unittest discover -s tests -v

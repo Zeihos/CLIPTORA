@@ -38,3 +38,12 @@ Thumbs.db
 **/target/
 tools/cliptora-scanner.exe
 tools/cliptora-scanner
+
+# Additional local work and packaging artifacts
+previews/
+build/
+dist/
+*.egg-info/
+.ruff_cache/
+.coverage
+htmlcov/
