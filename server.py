@@ -19,7 +19,7 @@ studio=None
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version='CLIPTORA/0.1.13'
+    server_version='CLIPTORA/0.1.15'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/status'):
@@ -47,6 +47,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_blob((HERE/'assets'/'cliptora-icon.svg').read_bytes(),'image/svg+xml')
             if parsed.path=='/api/status':
                 return self.send_blob(studio.status())
+            if parsed.path=='/api/quality-report':
+                return self.send_blob(studio.quality_report())
             if parsed.path=='/media':
                 return self.stream_media(parse_qs(parsed.query).get('id',[''])[0])
             if parsed.path=='/api/montage-preview/video':
@@ -135,6 +137,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_blob(studio.apply_plan_variant(payload.get('token',''),payload.get('variant','')))
             elif path=='/api/plan-undo':
                 studio.undo_plan()
+            elif path=='/api/quality-reference-add':
+                return self.send_blob(studio.add_quality_reference(
+                    payload['media_id'],payload['start'],payload['end'],payload.get('label','')))
+            elif path=='/api/quality-reference-remove':
+                studio.remove_quality_reference(payload['id'])
             elif path=='/api/clip-add':
                 studio.add_clip(payload['media_id'],payload['start'],payload['end'])
             elif path=='/api/clip':

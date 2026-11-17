@@ -1,3 +1,12 @@
+# 0.1.15 Alpha — manual reference benchmarks (2026-11-17)
+
+- Introduce independent human-annotated highlight windows, stored in local `project.json` without replacing or editing source videos and the current montage draft.
+- Compare the current selection and all three alternative plan variants against the annotated moments using reproducible one-to-one interval matching at IoU >= 0.30. Report Precision, Recall, F1, average IoU, missed references, matched pairs and the number of excluded unannotated-source clips.
+- Keep unlabelled recordings outside the evaluation instead of treating their clips as false positives, and report metrics as unavailable if there is no human reference data. Note that sparse/incomplete labels can still bias the results.
+- Expose add/remove/report endpoints on the local-only server and quality marking/reporting UI; cap stored annotations at 500 and validate video bounds, duplicate intervals and label length.
+- Preserve references after restart and incremental rescan of unchanged recordings; invalidate references for changed or removed videos, or when changing the footage directory. Mark stale plan previews invalid after reference changes.
+- Add deterministic matching, integration, persistence, validation, API and library invalidation tests. **This is not AI model training or a proof of comedic quality.** The 250 GB benchmark and standalone Windows `.exe` remain unfinished.
+
 # 0.1.14 Alpha — adaptive reaction context (2026-11-17)
 
 - Replace fixed audio-reaction windows with **bounded adaptive context**. Audio aftershocks, sustained visual activity and nearby replies can extend candidate end times; nearby setup speech can extend the beginning.

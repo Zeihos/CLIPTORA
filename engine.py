@@ -29,6 +29,7 @@ from plan_variants import create_variants
 from export_quality import make_export_filters, validate_export_quality
 from montage_preview import preview_segments, preview_signature
 from pacing import plan_pacing, validate_pacing
+from quality_benchmark import evaluate_quality, MAX_REFERENCES
 
 EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 KEYWORDS = ('ахах', 'хаха', 'лол', 'смешно', 'подожди', 'смотри', 'че за', 'что за',
@@ -331,13 +332,13 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.13'
+        self.project['version'] = '0.1.15'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.13','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
-                'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
+        return {'version':'0.1.15','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
+                'quality_references': [], 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
     def _save(self):
@@ -420,6 +421,7 @@ class Studio:
                     'target_minutes':self.project.get('target_minutes',12),
                     'settings':self.project.get('settings',{}),
                     'last_output':self.project.get('last_output',''),
+                    'quality_references': copy.deepcopy(self.project.get('quality_references', [])),
                     'selection_summary':self.project.get('selection_summary', {}),
                     'plan_undo_available':bool(self.project.get('plan_history')),
                     'plan_history_size':len(self.project.get('plan_history', [])),
@@ -509,6 +511,7 @@ class Studio:
                 self.project['files']=[]
                 self.project['clips']=[]
                 self.project['analysis_jobs']={}
+                self.project['quality_references']=[]
             before_signature = self.analysis_signature()
             if settings:
                 self.project['settings'].update({k:v for k,v in settings.items()
@@ -586,6 +589,8 @@ class Studio:
             self.scan_backend=backend
             # Preserve user review/edit decisions for unchanged source recordings.
             self.project['clips']=[c for c in self.project['clips'] if c['media_id'] in valid_ids]
+            self.project['quality_references']=[r for r in self.project.get('quality_references', [])
+                                                if r.get('media_id') in valid_ids]
             removed_clips=before_clips-len(self.project['clips'])
             self._sync_analysis_jobs()
             self._save()
@@ -711,6 +716,9 @@ class Studio:
                     all_candidates.append(c)
             variants = create_variants(all_candidates, target_seconds,
                                        {f['id']: i for i, f in enumerate(files)})
+            references = self.project.get('quality_references', [])
+            for variant in variants.values():
+                variant['quality'] = evaluate_quality(references, variant['clips'])
             token = uuid.uuid4().hex
             self._preview_cache = {'token': token, 'revision': self._project_revision,
                                    'variants': copy.deepcopy(variants), 'minutes': minutes}
@@ -794,6 +802,48 @@ class Studio:
         """Legacy API: builds the balanced variant, retaining an undo snapshot."""
         preview = self.preview_plans(target_minutes)
         return self.apply_plan_variant(preview['token'], 'balanced')['clips']
+
+    def add_quality_reference(self, media_id, start, end, label=''):
+        """Store a human-reviewed moment independently of automated or manual clips."""
+        with self.lock:
+            if self.worker and self.worker.is_alive():
+                raise RuntimeError('Нельзя отмечать эталоны во время обработки')
+            media = next((f for f in self.project['files'] if f['id'] == media_id), None)
+            if not media:
+                raise ValueError('Видеофайл не найден')
+            a, b = _safe_float(start, -1), _safe_float(end, -1)
+            if not (math.isfinite(a) and math.isfinite(b) and 0 <= a < b <= float(media['duration'])):
+                raise ValueError('Укажите корректные секунды внутри видео')
+            if not isinstance(label, str) or len(label) > 220:
+                raise ValueError('Описание не должно превышать 220 символов')
+            references = self.project.setdefault('quality_references', [])
+            if len(references) >= MAX_REFERENCES:
+                raise ValueError(f'Максимум {MAX_REFERENCES} эталонных фрагментов')
+            if any(r.get('media_id') == media_id and abs(float(r['start'])-a) < .01
+                   and abs(float(r['end'])-b) < .01 for r in references):
+                raise ValueError('Такой эталонный фрагмент уже существует')
+            item = {'id':uuid.uuid4().hex, 'media_id':media_id,
+                    'start':round(a,3), 'end':round(b,3), 'label':label.strip()}
+            references.append(item)
+            self._save()
+            return copy.deepcopy(item)
+
+    def remove_quality_reference(self, reference_id):
+        with self.lock:
+            if self.worker and self.worker.is_alive():
+                raise RuntimeError('Нельзя изменять эталоны во время обработки')
+            refs = self.project.get('quality_references', [])
+            remaining = [r for r in refs if r.get('id') != reference_id]
+            if len(remaining) == len(refs):
+                raise ValueError('Эталон не найден')
+            self.project['quality_references'] = remaining
+            self._save()
+
+    def quality_report(self):
+        """Return exact interval agreement metrics for the current montage draft."""
+        with self.lock:
+            return evaluate_quality(self.project.get('quality_references', []),
+                                    self.project.get('clips', []))
 
     def add_clip(self, media_id, start, end):
         with self.lock:

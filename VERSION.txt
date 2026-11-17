@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.14-alpha — adaptive reaction tails, nearby dialogue preservation and multimodal scoring hints.
+0.1.15-alpha — human reference moments and measurable highlight-selection quality benchmarks.

@@ -13,7 +13,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Alpha 0.1.14**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
+> **Alpha 0.1.15**. This is an experimental *first-cut/highlight selection* app, **not** a fully autonomous professional editor. It cannot reliably understand humor, game events, or comedic timing. Review selected clips before publishing. No 250 GB performance claim has been verified. Rust acceleration is opt-in and is limited to filesystem inventory.
 
 
 ### Адаптивная длительность кульминаций (v0.1.14)
@@ -44,6 +44,18 @@
 - Если изменить границы, набор клипов или настройки звука/переходов, предпросмотр станет устаревшим — создайте новый.
 - Для работы необходим FFmpeg; предпросмотр требует кодирования и не является рендерингом в реальном времени.
 
+### Проверяем качество подбора (v0.1.15)
+
+Новый раздел **«Контроль качества подбора»** позволяет сравнить автоматические предложения с **эталонными моментами, которые ты сам просмотрел и отметил**.
+
+1. После сканирования выбери конкретную запись, укажи начало и конец действительно интересной сцены в секундах и нажми **«Отметить момент»**. Разметь *все* важные эпизоды нескольких выбранных записей, а не только те, которые уже нашёл CLIPTORA.
+2. Нажми **«Оценить подборку»**. Для включённых в текущий черновик клипов измеряется пересечение с эталонами (IoU), где совпадением считается **IoU ≥ 0,30** и каждому эталону/клипу разрешена только одна пара.
+3. Снова нажми **«Сравнить 3 варианта»**: у сбалансированного, диалогового и экшен-вариантов теперь показываются Precision (точность), Recall (полнота) и F1, если есть эталонная разметка. Сравнение не заменяет ручной монтаж.
+
+**Что это значит:** Precision — доля выбранных клипов, совпавших с эталонами; Recall — доля эталонов, найденных в подборке; F1 — гармоническое среднее. В оценке участвуют **только видео, для которых создан хотя бы один эталон**; клипы с неразмеченных записей исключаются и учитываются отдельно. Если эталонов нет, метрики **не вычисляются**, а не равняются нулю.
+
+**Ограничения:** это не автоматическая оценка смешности, качества шуток или настроения зрителя. Неполная разметка делает показатели ненадёжными, а порог IoU условен. Не размечай лишь уже автоматически выбранные клипы — так ты искусственно завысишь оценку. До 500 эталонов хранятся отдельно от черновика в локальном `project.json`; они сохраняются при перезапуске и исчезают, если соответствующий исходный файл удалён или изменён при повторном сканировании. Изменение исходной папки сбрасывает разметку. Рекомендуется сделать резервную копию `project.json` перед массовой переработкой библиотеки. Новая функция работает полностью локально, без скачивания моделей и отправки видео в сеть.
+
 ## What it can do today
 
 | Area | Supported in the alpha |
@@ -53,6 +65,7 @@
 | Context | Keep surrounding dialogue, rank candidates by reviewable context signals and manually edit clip start/end |
 | AI | Optional **local** Ollama for scoring dialogue (quality is experimental) |
 | Review | Browser preview, human-readable selection reasons, enable/disable, adjust clips and mark subtle zooms |
+| Quality benchmark | Human-annotated reference moments, local one-to-one IoU matching, Precision / Recall / F1 for current and alternative selections |
 | Export | FFmpeg MP4 at 480p / 720p / 1080p and transcript-derived SRT; optional conservative dialogue-gap trimming, per-clip loudness normalization and short fade-through-black transitions |
 | Processing | Localhost server; preserves source files; incremental rescans, stable media IDs and resumable per-file analysis |
 | Queue | Persisted per-video progress; resume after restart; file-level errors and retry |
@@ -115,6 +128,7 @@ On Windows use `BUILD_RUST_WINDOWS.bat` to copy the compiled binary to `tools/`.
 - [ ] Stronger game-event and joke-context detection
 - [x] Text-based near-duplicate shortlist filtering and transparent ranking hints
 - [ ] Side-by-side visual clip comparison and event-aware semantic ranking
+- [x] Human reference moments and local interval-overlap quality reports (not a measure of humour)
 - [ ] Better zooms, captions, SFX and meme templates
 - [x] Optional Rust file inventory with automatic Python fallback
 - [ ] Long-library benchmarks and fault-tolerant job queue
@@ -127,7 +141,7 @@ See [CHANGELOG.md](CHANGELOG.md). This roadmap describes **plans**, not shipped 
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security concerns, see [SECURITY.md](SECURITY.md). Project code is released under the [MIT License](LICENSE); installed third-party software and models have their own licenses.
 
-**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.14-alpha.
+**Project:** CLIPTORA · **Maintainer:** [Zeihos](https://github.com/Zeihos) · **Version:** 0.1.15-alpha.
 
 ## Compare three edit drafts safely (v0.1.10)
 
