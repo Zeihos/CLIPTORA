@@ -21,7 +21,14 @@ def available_port():
         return sock.getsockname()[1]
 
 
-def smoke(executable):
+def verify_status(status, expect_whisper=False):
+    actual = bool(status.get('whisper_installed'))
+    assert actual == expect_whisper, (
+        f'Portable edition mismatch: expected Whisper={expect_whisper}, got {actual}'
+    )
+
+
+def smoke(executable, expect_whisper=False):
     exe = Path(executable).resolve()
     if not exe.is_file():
         raise FileNotFoundError(exe)
@@ -52,12 +59,18 @@ def smoke(executable):
                     raise AssertionError('Timed out waiting for CLIPTORA.exe HTTP server')
                 assert 'files' in status and 'clips' in status, status
                 assert status.get('rust_scanner_available') is True, 'Bundled Rust scanner not found'
+                verify_status(status, expect_whisper=expect_whisper)
+                if expect_whisper:
+                    check = subprocess.run([str(exe), '--check-whisper'], cwd=temp, env=env,
+                                           capture_output=True, text=True, timeout=45, errors='replace')
+                    assert check.returncode == 0, ('Bundled Whisper libraries failed import: '
+                                                   + check.stdout + check.stderr)
                 with urlopen(base + '/', timeout=5) as response:
                     page = response.read()
                     assert response.status == 200 and b'CLIPTORA' in page
                 with urlopen(base + '/assets/cliptora-icon.svg', timeout=5) as response:
                     assert response.status == 200 and b'<svg' in response.read()
-                print('EXE smoke test OK: API, UI, icon, Rust scanner')
+                print(f'EXE smoke test OK: API, UI, icon, Rust scanner, Whisper={expect_whisper}')
             except Exception:
                 log.flush()
                 print(output.read_text(encoding='utf-8', errors='replace')[-6000:], file=sys.stderr)
@@ -72,6 +85,6 @@ def smoke(executable):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        raise SystemExit('Usage: python scripts/smoke_portable.py path/to/CLIPTORA.exe')
-    smoke(sys.argv[1])
+    if len(sys.argv) not in (2, 3) or (len(sys.argv) == 3 and sys.argv[2] != '--expect-whisper'):
+        raise SystemExit('Usage: python scripts/smoke_portable.py path/to/CLIPTORA.exe [--expect-whisper]')
+    smoke(sys.argv[1], expect_whisper='--expect-whisper' in sys.argv[2:])

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.17 Alpha — две Windows Portable-сборки (2026-11-18)
+
+- Добавлены две редакции Windows Portable: Core без речевых зависимостей и AI со встроенным `faster-whisper`, CTranslate2, PyAV и токенизаторами. Модели Whisper не входят в архив и скачиваются при первом использовании.
+- PyInstaller автоматически собирает нативные библиотеки AI только при `CLIPTORA_WITH_AI=1`. Обычный Core остаётся компактным.
+- Windows Actions собирает обе редакции, проверяет запуск реального EXE, локальный интерфейс, Rust и (в AI) импорт нативных библиотек и CPU int8.
+- Добавлена команда `CLIPTORA.exe --check-whisper` без запуска локального сервера; она проверяет загрузку библиотек, но не транскрипцию и не загрузку модели.
+- FFmpeg/FFprobe по-прежнему должны быть установлены отдельно; стресс-тест на 250 ГБ и реальная Windows-проверка на компьютере пользователя ещё не проведены.
+
+
 Changes are listed newest first. CLIPTORA is alpha software; see README for current capabilities.
 
 ## 0.1.16 Alpha — Windows Portable (2026-11-18)

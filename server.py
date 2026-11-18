@@ -20,7 +20,7 @@ studio=None
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version='CLIPTORA/0.1.15'
+    server_version='CLIPTORA/0.1.17'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/status'):
@@ -212,6 +212,27 @@ def configure_console_output():
                 pass
 
 
+def check_whisper_runtime():
+    """Verify installed/bundled speech libraries without downloading a model.
+
+    This is an import/native-library self-check, not a transcription test.
+    """
+    try:
+        from faster_whisper import WhisperModel  # noqa: F401
+        import ctranslate2
+        import av  # noqa: F401
+        import tokenizers  # noqa: F401
+        import huggingface_hub  # noqa: F401
+        supported = ctranslate2.get_supported_compute_types('cpu')
+        if 'int8' not in supported:
+            raise RuntimeError('CTranslate2 CPU int8 backend is unavailable')
+    except Exception as exc:
+        print('Whisper недоступен: ' + str(exc), file=sys.stderr, flush=True)
+        return 1
+    print('Whisper: библиотеки и CPU int8 доступны (модель при первом запуске скачивается отдельно).', flush=True)
+    return 0
+
+
 def main():
     global studio
     configure_console_output()
@@ -219,7 +240,10 @@ def main():
     parser.add_argument('--work-dir',default=None)
     parser.add_argument('--port',type=int,default=8765)
     parser.add_argument('--no-browser',action='store_true')
+    parser.add_argument('--check-whisper',action='store_true',help='Проверить библиотеки Whisper без скачивания модели')
     args=parser.parse_args()
+    if args.check_whisper:
+        return check_whisper_runtime()
     studio=Studio(args.work_dir)
     server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
     print(f'CLIPTORA: http://127.0.0.1:{args.port}',flush=True)
@@ -236,4 +260,4 @@ def main():
         server.server_close()
 
 if __name__=='__main__':
-    main()
+    sys.exit(main())

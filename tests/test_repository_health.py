@@ -41,6 +41,17 @@ class RepositoryHealthTests(unittest.TestCase):
         version = (ROOT / 'VERSION.txt').read_text(encoding='utf-8').splitlines()[1].split(' ', 1)[0]
         self.assertIn(version.replace('-alpha', ' Alpha'), (ROOT / 'README.md').read_text(encoding='utf-8'))
 
+    def test_displayed_version_and_new_project_version_match_release(self):
+        import tempfile
+        from engine import Studio
+        release = (ROOT / 'VERSION.txt').read_text(encoding='utf-8').splitlines()[1].split('-alpha')[0]
+        with tempfile.TemporaryDirectory() as temp:
+            app = Studio(temp)
+            self.assertEqual(app.project['version'], release)
+        html = (ROOT / 'web/index.html').read_text(encoding='utf-8')
+        self.assertIn('ALPHA ' + release, html)
+        self.assertIn('Версия ' + release, html)
+
     def test_windows_launch_files_still_exist(self):
         for name in ('SETUP_WINDOWS.bat', 'SELECT_PYTHON_WINDOWS.bat',
                      'START_WINDOWS.bat', 'INSTALL_AI_WINDOWS.bat', 'BUILD_RUST_WINDOWS.bat'):

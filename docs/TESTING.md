@@ -47,3 +47,18 @@ Workflow [`CLIPTORA CI`](../.github/workflows/ci.yml) запускается п�
 ### Windows Portable (GitHub Actions)
 
 Workflow [`Windows Portable EXE`](../.github/workflows/windows-portable.yml) собирает Rust Core, упаковывает приложение PyInstaller в `dist/CLIPTORA/`, запускает smoke-тест **реального** `CLIPTORA.exe` и публикует ZIP-артефакт. Установленный Python в CI нужен только для сборки и тестирования, конечному пользователю — нет. Для локальной сборки на Windows: `cargo build --release --locked --manifest-path rust/scanner/Cargo.toml`, затем `python -m pip install pyinstaller==6.16.0`, затем `python -m PyInstaller --clean --distpath dist --workpath build packaging/cliptora.spec`.
+
+### Portable Core / AI (Windows GitHub Actions)
+
+Workflow `windows-portable.yml` собирает два артефакта: `CLIPTORA-Windows-Portable-Core` и `CLIPTORA-Windows-Portable-AI`. AI-редакция ставит зависимости из `packaging/requirements-portable-ai.txt` и запускает упакованный EXE с `--check-whisper` после старта локального сервера. Это проверка импортов/DLL и CPU int8, **не тест распознавания настоящего звука моделью**. Весов модели нет в архиве.
+
+Локальная сборка AI на Windows после сборки Rust Core:
+
+```powershell
+py -3.12 -m pip install pyinstaller==6.16.0 -r packaging/requirements-portable-ai.txt
+$env:CLIPTORA_WITH_AI = '1'
+py -3.12 -m PyInstaller --clean packaging/cliptora.spec
+.\dist\CLIPTORA\CLIPTORA.exe --check-whisper
+```
+
+Без переменной `CLIPTORA_WITH_AI` собирается Core. Для работы анализа/экспорта в обеих сборках необходим FFmpeg.

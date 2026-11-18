@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.16-alpha — experimental portable Windows EXE with bundled Rust scanner and local UI.
+0.1.17-alpha — optional Windows Portable AI edition with bundled faster-whisper runtime (models separate).

@@ -1,0 +1,3 @@
+# For Windows Python 3.12 only; models are NOT bundled.
+# Keep pinned for reproducible GitHub Actions portable builds.
+faster-whisper==1.2.1

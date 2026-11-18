@@ -10,9 +10,13 @@ permissions:
 
 jobs:
   portable:
-    name: CLIPTORA.exe · Windows
+    name: CLIPTORA.exe · ${{ matrix.edition }}
     runs-on: windows-latest
-    timeout-minutes: 35
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        edition: [Core, AI]
     steps:
       - name: Загрузить исходники
         uses: actions/checkout@v4
@@ -26,10 +30,19 @@ jobs:
         run: cargo build --locked --release --manifest-path rust/scanner/Cargo.toml
       - name: Установить PyInstaller
         run: python -m pip install pyinstaller==6.16.0
+      - name: Установить Whisper для AI-сборки
+        if: matrix.edition == 'AI'
+        run: python -m pip install -r packaging/requirements-portable-ai.txt
       - name: Собрать CLIPTORA.exe
+        env:
+          CLIPTORA_WITH_AI: ${{ matrix.edition == 'AI' && '1' || '0' }}
         run: python -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging/cliptora.spec
-      - name: Проверить запуск настоящего EXE
+      - name: Проверить запуск настоящего EXE (Core)
+        if: matrix.edition == 'Core'
         run: python scripts/smoke_portable.py dist/CLIPTORA/CLIPTORA.exe
+      - name: Проверить запуск EXE и нативный Whisper (AI)
+        if: matrix.edition == 'AI'
+        run: python scripts/smoke_portable.py dist/CLIPTORA/CLIPTORA.exe --expect-whisper
       - name: Добавить лицензию и инструкцию
         shell: pwsh
         run: |
@@ -38,7 +51,7 @@ jobs:
       - name: Загрузить Windows Portable
         uses: actions/upload-artifact@v4
         with:
-          name: CLIPTORA-Windows-Portable
+          name: CLIPTORA-Windows-Portable-${{ matrix.edition }}
           path: dist/CLIPTORA/
           if-no-files-found: error
           retention-days: 14
