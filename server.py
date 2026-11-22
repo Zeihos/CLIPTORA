@@ -20,7 +20,7 @@ studio=None
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version='CLIPTORA/0.1.17'
+    server_version='CLIPTORA/0.1.18'
 
     def log_message(self, fmt, *args):
         if not self.path.startswith('/api/status'):
@@ -233,6 +233,40 @@ def check_whisper_runtime():
     return 0
 
 
+
+def check_whisper_transcription(media_path, model_name='tiny.en', language='en'):
+    """Run real CPU inference on a user-supplied audio/video sample.
+
+    No transcription text is logged (sample may contain private dialogue).
+    A positive result requires at least one recognized segment, not just
+    successful native-library imports. A small model may download on first use.
+    """
+    path = Path(media_path).expanduser()
+    if not path.is_file() or path.stat().st_size == 0:
+        print('Не найден файл с аудио/видео или файл пуст', file=sys.stderr, flush=True)
+        return 2
+    try:
+        import threading
+        from faster_whisper import WhisperModel
+        from engine import transcribe
+        model = WhisperModel(model_name, device='cpu', compute_type='int8',
+                             cpu_threads=2, num_workers=1)
+        segments = transcribe(path, model, threading.Event(), language=language)
+        if not segments:
+            raise RuntimeError('Речь не обнаружена (0 распознанных сегментов)')
+        if any(s['start'] < 0 or s['end'] <= s['start'] for s in segments):
+            raise RuntimeError('Недопустимые временные метки распознавания')
+        # Do not print content: public CI logs and local diagnostics may leak speech.
+        print(json.dumps({'ok': True, 'segments': len(segments),
+                          'recognized_chars': sum(len(s['text']) for s in segments)},
+                         ensure_ascii=False), flush=True)
+        return 0
+    except Exception as exc:
+        print('Ошибка проверки реального распознавания Whisper: ' + str(exc),
+              file=sys.stderr, flush=True)
+        return 1
+
+
 def main():
     global studio
     configure_console_output()
@@ -241,9 +275,15 @@ def main():
     parser.add_argument('--port',type=int,default=8765)
     parser.add_argument('--no-browser',action='store_true')
     parser.add_argument('--check-whisper',action='store_true',help='Проверить библиотеки Whisper без скачивания модели')
+    parser.add_argument('--test-whisper',metavar='MEDIA',help='Проверить настоящее распознавание речи на аудио/видео')
+    parser.add_argument('--whisper-test-model',default='tiny.en',help='Модель для проверки (может скачиваться)')
+    parser.add_argument('--whisper-test-language',default='en',help='Язык проверочной записи')
     args=parser.parse_args()
     if args.check_whisper:
         return check_whisper_runtime()
+    if args.test_whisper:
+        return check_whisper_transcription(args.test_whisper, args.whisper_test_model,
+                                           args.whisper_test_language)
     studio=Studio(args.work_dir)
     server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler)
     print(f'CLIPTORA: http://127.0.0.1:{args.port}',flush=True)

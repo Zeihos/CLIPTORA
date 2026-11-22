@@ -12,7 +12,7 @@ jobs:
   portable:
     name: CLIPTORA.exe · ${{ matrix.edition }}
     runs-on: windows-latest
-    timeout-minutes: 55
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
@@ -43,6 +43,18 @@ jobs:
       - name: Проверить запуск EXE и нативный Whisper (AI)
         if: matrix.edition == 'AI'
         run: python scripts/smoke_portable.py dist/CLIPTORA/CLIPTORA.exe --expect-whisper
+      - name: Создать тестовый голос (AI)
+        if: matrix.edition == 'AI'
+        shell: pwsh
+        run: ./scripts/create_speech_fixture.ps1 "$env:RUNNER_TEMP/cliptora-speech.wav"
+      - name: Установить FFmpeg для тестового видео (AI)
+        if: matrix.edition == 'AI'
+        run: python -m pip install imageio-ffmpeg==0.6.0
+      - name: Проверить настоящее распознавание в EXE (AI)
+        if: matrix.edition == 'AI'
+        timeout-minutes: 15
+        shell: pwsh
+        run: python scripts/smoke_whisper_inference.py dist/CLIPTORA/CLIPTORA.exe "$env:RUNNER_TEMP/cliptora-speech.wav" "$env:RUNNER_TEMP/cliptora-speech.mp4"
       - name: Добавить лицензию и инструкцию
         shell: pwsh
         run: |

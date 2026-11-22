@@ -333,12 +333,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.17'
+        self.project['version'] = '0.1.18'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.17','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
+        return {'version':'0.1.18','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
                 'quality_references': [], 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
