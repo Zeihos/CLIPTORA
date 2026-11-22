@@ -9,8 +9,10 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from runtime_paths import resource_root, tool_directories
+from process_diagnostics import tail_error
 
 VIDEO_EXTS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.m4v', '.ts'}
 
@@ -57,44 +59,42 @@ def _scan_python(root, stop):
 
 
 def _scan_rust(root, stop, binary):
-    """Read line-delimited JSON, never shell-execute paths or load video data."""
+    """Stream JSONL without blocking on diagnostic bursts from native scanner."""
     items = []
     flags = 0x08000000 if os.name == 'nt' else 0
-    child = subprocess.Popen([str(binary), str(root)], stdin=subprocess.DEVNULL,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             text=True, encoding='utf-8', errors='strict',
-                             creationflags=flags)
-    try:
-        for line in child.stdout:
+    with tempfile.TemporaryFile() as errors:
+        child = subprocess.Popen([str(binary), str(root)], stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.PIPE, stderr=errors,
+                                 text=True, encoding='utf-8', errors='strict',
+                                 creationflags=flags)
+        try:
+            for line in child.stdout:
+                if stop.is_set():
+                    raise InterruptedError('Сканирование остановлено')
+                item = json.loads(line)
+                if not isinstance(item, dict):
+                    raise ValueError('Rust scanner: invalid record')
+                path = Path(item.get('path', ''))
+                size, mtime_ns = item.get('size'), item.get('mtime_ns')
+                if (not path.is_absolute() or not path.is_relative_to(root) or
+                        '..' in path.parts or path.suffix.lower() not in VIDEO_EXTS or
+                        path.is_symlink() or not isinstance(size, int) or isinstance(size, bool) or
+                        not isinstance(mtime_ns, int) or isinstance(mtime_ns, bool) or
+                        size <= 0):
+                    raise ValueError('Rust scanner: malformed metadata record')
+                items.append({'path': str(path), 'size': size, 'mtime_ns': mtime_ns})
             if stop.is_set():
                 raise InterruptedError('Сканирование остановлено')
-            item = json.loads(line)
-            if not isinstance(item, dict):
-                raise ValueError('Rust scanner: invalid record')
-            path = Path(item.get('path', ''))
-            size, mtime_ns = item.get('size'), item.get('mtime_ns')
-            if (not path.is_absolute() or not path.is_relative_to(root) or
-                    '..' in path.parts or path.suffix.lower() not in VIDEO_EXTS or
-                    path.is_symlink() or not isinstance(size, int) or isinstance(size, bool) or
-                    not isinstance(mtime_ns, int) or isinstance(mtime_ns, bool) or
-                    size <= 0):
-                raise ValueError('Rust scanner: malformed metadata record')
-            items.append({'path': str(path), 'size': size, 'mtime_ns': mtime_ns})
-        if stop.is_set():
-            raise InterruptedError('Сканирование остановлено')
-        code = child.wait(timeout=30)
-        if code:
-            error = child.stderr.read()[-350:]
-            raise RuntimeError(f'Rust scanner code {code}: {error}')
-        return items
-    finally:
-        if child.poll() is None:
-            child.kill()
-        child.wait()
-        if child.stdout:
-            child.stdout.close()
-        if child.stderr:
-            child.stderr.close()
+            code = child.wait(timeout=30)
+            if code:
+                raise RuntimeError(f'Rust scanner code {code}: {tail_error(errors, 350)}')
+            return items
+        finally:
+            if child.poll() is None:
+                child.kill()
+            child.wait()
+            if child.stdout:
+                child.stdout.close()
 
 
 def discover(root, stop, notify=None):

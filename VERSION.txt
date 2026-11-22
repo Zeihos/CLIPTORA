@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.18-alpha — real Whisper inference verification in Windows Portable AI using synthetic speech video.
+0.1.19-alpha — bounded subprocess diagnostics and monotonic media IDs for robust large-library scans.

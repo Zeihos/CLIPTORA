@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://github.com/Zeihos/CLIPTORA/actions/workflows/ci.yml"><img alt="Проверки Windows и Linux" src="https://github.com/Zeihos/CLIPTORA/actions/workflows/ci.yml/badge.svg" /></a>
-  <img alt="Версия 0.1.18 Alpha" src="https://img.shields.io/badge/version-0.1.18--alpha-9585FF" />
+  <img alt="Версия 0.1.19 Alpha" src="https://img.shields.io/badge/version-0.1.19--alpha-9585FF" />
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" />
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%2F%2011-2A4365?logo=windows&logoColor=white" />
   <a href="LICENSE"><img alt="Лицензия MIT" src="https://img.shields.io/badge/license-MIT-56C6DA" /></a>
@@ -29,7 +29,7 @@
 ---
 
 > [!IMPORTANT]
-> **CLIPTORA 0.1.18 Alpha** — экспериментальная версия для **поиска и ручной доработки предложенных сцен**. Это пока не автономный профессиональный монтажёр: программа не гарантирует распознавания шуток, побед, эмоций и игровых событий. Экспериментальная Portable-сборка `.exe` уже доступна через GitHub Actions (это не установщик); масштабный стресс-тест на **250 ГБ** не проведён.
+> **CLIPTORA 0.1.19 Alpha** — экспериментальная версия для **поиска и ручной доработки предложенных сцен**. Это пока не автономный профессиональный монтажёр: программа не гарантирует распознавания шуток, побед, эмоций и игровых событий. Экспериментальная Portable-сборка `.exe` уже доступна через GitHub Actions (это не установщик); масштабный стресс-тест на **250 ГБ** не проведён.
 
 
 ### Windows Portable EXE (экспериментально)

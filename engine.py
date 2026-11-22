@@ -13,6 +13,7 @@ import re
 import shutil
 import statistics
 import subprocess
+import tempfile
 import threading
 import time
 import urllib.error
@@ -20,6 +21,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+from process_diagnostics import tail_error
 from scanner_bridge import discover, locate_scanner
 from highlight_signals import detect_audio_reactions
 from climax_timing import ReactionContext
@@ -100,80 +102,79 @@ def _mean(values):
 
 
 def audio_envelope(path, duration, stop, on_progress=None, threads=2):
-    """Stream mono 8 kHz PCM; retain 0.5-second RMS, not the full sound."""
+    """Stream 0.5-second RMS readings; never block on noisy FFmpeg stderr."""
     ffmpeg = locate_ffmpeg('ffmpeg')
     cmd = [ffmpeg, '-v', 'error', '-nostdin', '-threads', str(threads), '-i', str(path), '-vn',
            '-ac', '1', '-ar', '8000', '-f', 's16le', 'pipe:1']
-    p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE, creationflags=(0x08000000 if os.name == 'nt' else 0))
-    levels = []
-    try:
-        step_bytes = 8000  # 4000 16-bit samples = 0.5 seconds
-        while not stop.is_set():
-            block = p.stdout.read(step_bytes)
-            if not block:
-                break
-            # FFmpeg writes aligned audio; pad odd trailing byte if needed.
-            arr = array.array('h')
-            arr.frombytes(block[:len(block) // 2 * 2])
-            if not arr:
-                break
-            samples = arr[::4]
-            rms = math.sqrt(sum(v*v for v in samples) / len(samples)) / 32768
-            levels.append(round(rms, 5))
-            if on_progress and len(levels) % 120 == 0:
-                on_progress(min(1, (len(levels) / 2) / max(1, duration)))
-        if stop.is_set():
-            p.terminate()
-            raise InterruptedError('Анализ остановлен пользователем')
-        p.wait(timeout=20)
-        if p.returncode:
-            error = p.stderr.read().decode('utf-8', 'replace')[-400:]
-            raise RuntimeError('Ошибка анализа аудио: ' + error)
-    finally:
-        if p.poll() is None:
-            p.kill()
-        if p.stdout:
-            p.stdout.close()
-        if p.stderr:
-            p.stderr.close()
-    return levels
+    with tempfile.TemporaryFile() as errors:
+        p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             stderr=errors, creationflags=(0x08000000 if os.name == 'nt' else 0))
+        levels = []
+        try:
+            step_bytes = 8000  # 4000 16-bit samples = 0.5 seconds
+            while not stop.is_set():
+                block = p.stdout.read(step_bytes)
+                if not block:
+                    break
+                arr = array.array('h')
+                arr.frombytes(block[:len(block) // 2 * 2])
+                if not arr:
+                    break
+                samples = arr[::4]
+                rms = math.sqrt(sum(v*v for v in samples) / len(samples)) / 32768
+                levels.append(round(rms, 5))
+                if on_progress and len(levels) % 120 == 0:
+                    on_progress(min(1, (len(levels) / 2) / max(1, duration)))
+            if stop.is_set():
+                p.terminate()
+                raise InterruptedError('Анализ остановлен пользователем')
+            p.wait(timeout=20)
+            if p.returncode:
+                raise RuntimeError('Ошибка анализа аудио: ' + tail_error(errors))
+        finally:
+            if p.poll() is None:
+                p.kill()
+            p.wait()
+            if p.stdout:
+                p.stdout.close()
+        return levels
 
 
 def motion_envelope(path, stop, on_progress=None, threads=2):
-    """Slow optional motion pass (0.5 FPS, 96x54 gray); no video kept in memory."""
+    """Stream sampled gray frames without buffering decoder diagnostics."""
     ffmpeg = locate_ffmpeg('ffmpeg')
     size = 96 * 54
     cmd = [ffmpeg, '-v', 'error', '-nostdin', '-threads', str(threads), '-i', str(path), '-an',
-           '-filter_threads', str(threads), '-vf', 'fps=1/2,scale=96:54,format=gray', '-f', 'rawvideo', 'pipe:1']
-    p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE, creationflags=(0x08000000 if os.name == 'nt' else 0))
-    values, previous = [], None
-    try:
-        while not stop.is_set():
-            frame = p.stdout.read(size)
-            if not frame or len(frame) != size:
-                break
-            if previous is not None:
-                delta = sum(abs(a-b) for a, b in zip(frame[::4], previous[::4])) / (len(frame[::4]) * 255)
-                values.append(round(delta, 4))
-            else:
-                values.append(0)
-            previous = frame
-        if stop.is_set():
-            p.terminate()
-            raise InterruptedError('Анализ остановлен пользователем')
-        p.wait(timeout=20)
-        if p.returncode:
-            raise RuntimeError(p.stderr.read().decode('utf-8', 'replace')[-300:])
-    finally:
-        if p.poll() is None:
-            p.kill()
-        if p.stdout:
-            p.stdout.close()
-        if p.stderr:
-            p.stderr.close()
-    return values
+           '-filter_threads', str(threads), '-vf', 'fps=1/2,scale=96:54,format=gray',
+           '-f', 'rawvideo', 'pipe:1']
+    with tempfile.TemporaryFile() as errors:
+        p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                             stderr=errors, creationflags=(0x08000000 if os.name == 'nt' else 0))
+        values, previous = [], None
+        try:
+            while not stop.is_set():
+                frame = p.stdout.read(size)
+                if not frame or len(frame) != size:
+                    break
+                if previous is not None:
+                    delta = sum(abs(a-b) for a, b in zip(frame[::4], previous[::4])) / (len(frame[::4]) * 255)
+                    values.append(round(delta, 4))
+                else:
+                    values.append(0)
+                previous = frame
+            if stop.is_set():
+                p.terminate()
+                raise InterruptedError('Анализ остановлен пользователем')
+            p.wait(timeout=20)
+            if p.returncode:
+                raise RuntimeError(tail_error(errors, 300))
+        finally:
+            if p.poll() is None:
+                p.kill()
+            p.wait()
+            if p.stdout:
+                p.stdout.close()
+        return values
 
 
 def transcribe(path, model, stop, language='ru'):
@@ -333,12 +334,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.18'
+        self.project['version'] = '0.1.19'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.18','source_dir':'','files':[],'clips':[], 'analysis_jobs':{},
+        return {'version':'0.1.19','source_dir':'','files':[],'clips':[], 'next_media_id':0, 'analysis_jobs':{},
                 'quality_references': [], 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
@@ -554,7 +555,7 @@ class Studio:
         # Never recycle IDs: reviewed clips depend on stable media IDs.
         known_numbers = [int(f['id'][1:]) for f in old.values()
                          if re.fullmatch(r'm[0-9]+', str(f.get('id', '')))]
-        next_id = max(known_numbers, default=-1) + 1
+        next_id = max(max(known_numbers, default=-1) + 1, int(self.project.get('next_media_id', 0)))
         count=0
         for entry in metadata:
             if self.stop.is_set():
@@ -592,6 +593,7 @@ class Studio:
             valid_ids={f['id'] for f in items}
             before_clips=len(self.project['clips'])
             self.project['files']=items
+            self.project['next_media_id'] = next_id
             self.scan_backend=backend
             # Preserve user review/edit decisions for unchanged source recordings.
             self.project['clips']=[c for c in self.project['clips'] if c['media_id'] in valid_ids]
