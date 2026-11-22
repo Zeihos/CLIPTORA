@@ -20,6 +20,14 @@ cargo build --release --locked --manifest-path rust/scanner/Cargo.toml
 
 При отсутствии FFmpeg/FFprobe интеграционные тесты кодирования могут быть пропущены. **Пропущенный тест не равен успешному.** Наличие собранного Rust-сканера проверяется в GitHub Actions.
 
+Для проверки блокирующих FFmpeg-потоков и реакции на остановку:
+
+```bash
+python -m unittest discover -s tests -p 'test_streaming_watchdog.py' -v
+```
+
+Эти тесты имитируют остановившийся процесс, вывод 4 МиБ данных и отмену посреди чтения. Если FFmpeg доступен, дополнительный тест декодирует двухсекундный MP4 со звуком.
+
 ## Автоматическая проверка GitHub Actions
 
 Workflow [`CLIPTORA CI`](../.github/workflows/ci.yml) запускается при изменениях в `main`, на Pull Request и вручную. Проверяются Windows и Ubuntu: Python, сборка и тесты Rust, обнаружение бинарника из Python и регрессионный набор тестов.

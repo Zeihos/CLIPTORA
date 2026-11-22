@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.19-alpha — bounded subprocess diagnostics and monotonic media IDs for robust large-library scans.
+0.1.20-alpha — cancellable FFmpeg streaming with bounded buffers and idle-timeout protection.

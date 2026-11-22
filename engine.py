@@ -21,7 +21,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-from process_diagnostics import tail_error
+from process_diagnostics import tail_error, iter_child_blocks
 from scanner_bridge import discover, locate_scanner
 from highlight_signals import detect_audio_reactions
 from climax_timing import ReactionContext
@@ -112,10 +112,7 @@ def audio_envelope(path, duration, stop, on_progress=None, threads=2):
         levels = []
         try:
             step_bytes = 8000  # 4000 16-bit samples = 0.5 seconds
-            while not stop.is_set():
-                block = p.stdout.read(step_bytes)
-                if not block:
-                    break
+            for block in iter_child_blocks(p, stop, step_bytes):
                 arr = array.array('h')
                 arr.frombytes(block[:len(block) // 2 * 2])
                 if not arr:
@@ -152,9 +149,8 @@ def motion_envelope(path, stop, on_progress=None, threads=2):
                              stderr=errors, creationflags=(0x08000000 if os.name == 'nt' else 0))
         values, previous = [], None
         try:
-            while not stop.is_set():
-                frame = p.stdout.read(size)
-                if not frame or len(frame) != size:
+            for frame in iter_child_blocks(p, stop, size):
+                if len(frame) != size:
                     break
                 if previous is not None:
                     delta = sum(abs(a-b) for a, b in zip(frame[::4], previous[::4])) / (len(frame[::4]) * 255)
@@ -334,12 +330,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.19'
+        self.project['version'] = '0.1.20'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.19','source_dir':'','files':[],'clips':[], 'next_media_id':0, 'analysis_jobs':{},
+        return {'version':'0.1.20','source_dir':'','files':[],'clips':[], 'next_media_id':0, 'analysis_jobs':{},
                 'quality_references': [], 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
