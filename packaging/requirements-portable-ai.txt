@@ -1,3 +1,6 @@
 # For Windows Python 3.12 only; models are NOT bundled.
 # Keep pinned for reproducible GitHub Actions portable builds.
 faster-whisper==1.2.1
+
+# faster-whisper 1.2.1 passes metadata_errors to av.open; PyAV 19 removed it.
+av==18.1.0

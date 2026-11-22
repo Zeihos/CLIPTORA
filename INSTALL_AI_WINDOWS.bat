@@ -11,9 +11,11 @@ if errorlevel 1 goto no_python
 "%CLIPTORA_PYTHON%" -c "import faster_whisper; print('[OK] faster-whisper already installed')" >nul 2>&1
 if not errorlevel 1 goto verify_ai
 echo [INFO] Installing faster-whisper for Python 3.12...
-"%CLIPTORA_PYTHON%" -m pip install --only-binary=:all: "faster-whisper==1.2.1"
+"%CLIPTORA_PYTHON%" -m pip install --only-binary=:all: "faster-whisper==1.2.1" "av==18.1.0"
 if errorlevel 1 goto ai_failed
 :verify_ai
+"%CLIPTORA_PYTHON%" -m pip install --only-binary=:all: "av==18.1.0"
+if errorlevel 1 goto ai_failed
 "%CLIPTORA_PYTHON%" -c "import faster_whisper; print('[OK] faster-whisper is ready')"
 if errorlevel 1 goto ai_failed
 echo [INFO] Speech recognition models download on first use.

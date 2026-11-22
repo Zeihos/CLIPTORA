@@ -36,7 +36,7 @@ class WhisperInferenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             media = Path(temp) / 'speech.wav'
             media.write_bytes(b'RIFFfake wav content')
-            with patch.dict(sys.modules, {'faster_whisper': self.fake_package(segments, calls)}):
+            with patch.dict(sys.modules, {'faster_whisper': self.fake_package(segments, calls), 'av': SimpleNamespace(__version__='18.1.0')}):
                 with contextlib.redirect_stdout(io.StringIO()) as out:
                     code = server.check_whisper_transcription(media, 'tiny.en', 'en')
             self.assertEqual(code, 0)
@@ -60,11 +60,22 @@ class WhisperInferenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             media = Path(temp) / 'empty.flac'
             media.write_bytes(b'not empty')
-            with patch.dict(sys.modules, {'faster_whisper': self.fake_package([], {})}):
+            with patch.dict(sys.modules, {'faster_whisper': self.fake_package([], {}), 'av': SimpleNamespace(__version__='18.1.0')}):
                 with contextlib.redirect_stderr(io.StringIO()) as err:
                     code = server.check_whisper_transcription(media, 'tiny.en', 'en')
             self.assertNotEqual(code, 0)
             self.assertIn('реч', err.getvalue().lower())
+
+    def test_incompatible_pyav_19_fails_before_model_download(self):
+        with tempfile.TemporaryDirectory() as temp:
+            media = Path(temp) / 'speech.mp4'
+            media.write_bytes(b'real enough for version check')
+            package = self.fake_package([], {})
+            with patch.dict(sys.modules, {'faster_whisper': package,
+                                         'av': SimpleNamespace(__version__='19.0.2')}):
+                with contextlib.redirect_stderr(io.StringIO()) as err:
+                    self.assertNotEqual(server.check_whisper_transcription(media, 'tiny.en', 'en'), 0)
+            self.assertIn('av==18.1.0', err.getvalue())
 
     def test_cli_invokes_transcription_test_instead_of_starting_server(self):
         with patch.object(server, 'check_whisper_transcription', return_value=0) as check:

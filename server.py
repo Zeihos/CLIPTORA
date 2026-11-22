@@ -14,6 +14,7 @@ from engine import Studio
 from export_quality import validate_export_quality
 from pacing import validate_pacing
 from runtime_paths import resource_root
+from whisper_compat import assert_pyav_compatible
 
 HERE=resource_root()
 studio=None
@@ -220,7 +221,8 @@ def check_whisper_runtime():
     try:
         from faster_whisper import WhisperModel  # noqa: F401
         import ctranslate2
-        import av  # noqa: F401
+        import av
+        assert_pyav_compatible(av.__version__)
         import tokenizers  # noqa: F401
         import huggingface_hub  # noqa: F401
         supported = ctranslate2.get_supported_compute_types('cpu')
@@ -248,6 +250,8 @@ def check_whisper_transcription(media_path, model_name='tiny.en', language='en')
     try:
         import threading
         from faster_whisper import WhisperModel
+        import av
+        assert_pyav_compatible(av.__version__)
         from engine import transcribe
         model = WhisperModel(model_name, device='cpu', compute_type='int8',
                              cpu_threads=2, num_workers=1)

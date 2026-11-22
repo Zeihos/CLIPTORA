@@ -462,8 +462,13 @@ class Studio:
     def whisper_available():
         try:
             import importlib.util
-            return importlib.util.find_spec('faster_whisper') is not None
-        except ImportError:
+            if importlib.util.find_spec('faster_whisper') is None:
+                return False
+            import av
+            from whisper_compat import assert_pyav_compatible
+            assert_pyav_compatible(av.__version__)
+            return True
+        except (ImportError, RuntimeError):
             return False
 
     def schedule(self, name, func, *args, **kwargs):
@@ -624,7 +629,7 @@ class Studio:
             model = WhisperModel(settings.get('whisper_model', 'small'), device='cpu',
                                  compute_type='int8', cpu_threads=threads, num_workers=1)
         elif settings.get('whisper'):
-            self.log('Whisper не установлен: распознавание речи пропущено. Смотрите docs/INSTALL_RU.md')
+            self.log('Whisper не установлен или версия PyAV несовместима: переустановите INSTALL_AI_WINDOWS.bat (требуется av==18.1.0)')
 
         failed = 0
         total = len(todo)
