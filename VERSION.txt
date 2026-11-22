@@ -1,2 +1,2 @@
 CLIPTORA
-0.1.20-alpha — cancellable FFmpeg streaming with bounded buffers and idle-timeout protection.
+0.1.21-alpha — persistent per-video stage timing and lightweight Python process memory diagnostics.

@@ -22,6 +22,7 @@ import uuid
 from pathlib import Path
 
 from process_diagnostics import tail_error, iter_child_blocks
+from analysis_metrics import AnalysisProfile, summarize_performance, current_python_rss_mib
 from scanner_bridge import discover, locate_scanner
 from highlight_signals import detect_audio_reactions
 from climax_timing import ReactionContext
@@ -330,12 +331,12 @@ class Studio:
                 self.project = self._blank()
         else:
             self.project = self._blank()
-        self.project['version'] = '0.1.20'
+        self.project['version'] = '0.1.21'
         self._sync_analysis_jobs(recover_running=True)
         self._save()
 
     def _blank(self):
-        return {'version':'0.1.20','source_dir':'','files':[],'clips':[], 'next_media_id':0, 'analysis_jobs':{},
+        return {'version':'0.1.21','source_dir':'','files':[],'clips':[], 'next_media_id':0, 'analysis_jobs':{},
                 'quality_references': [], 'target_minutes':12, 'settings':{'vision':False, 'whisper':True,
                 'whisper_model':'small', 'ollama_model':'', 'cpu_threads':2},'last_output':''}
 
@@ -395,7 +396,8 @@ class Studio:
                     state = 'pending'
                 jobs[mid] = {'state': state, 'signature': signature,
                              'attempts': int(previous.get('attempts', 0)),
-                             'error': str(previous.get('error', ''))[:300] if state == 'failed' else ''}
+                             'error': str(previous.get('error', ''))[:300] if state == 'failed' else '',
+                             'metrics': copy.deepcopy(previous.get('metrics', {})) if isinstance(previous.get('metrics'), dict) else {}}
             self.project['analysis_jobs'] = jobs
             return jobs
 
@@ -405,14 +407,17 @@ class Studio:
             files = [{**{k:v for k,v in f.items() if k != 'analysis'},
                       'analyzed':bool(f.get('analyzed') and f.get('analysis_signature') == signature),
                       'analysis_state': self.project.get('analysis_jobs', {}).get(f['id'], {}).get('state', 'pending'),
-                      'analysis_error': self.project.get('analysis_jobs', {}).get(f['id'], {}).get('error', '')}
+                      'analysis_error': self.project.get('analysis_jobs', {}).get(f['id'], {}).get('error', ''),
+                      'analysis_metrics': copy.deepcopy(self.project.get('analysis_jobs', {}).get(f['id'], {}).get('metrics', {}))}
                      for f in self.project['files']]
             clips = self.project['clips']
             jobs = self.project.get('analysis_jobs', {})
             counts = {state: sum(1 for j in jobs.values() if j.get('state') == state)
                       for state in ('pending', 'running', 'complete', 'failed')}
             counts['total'] = len(files)
-            return {'analysis_queue': counts, 'busy':bool(self.worker and self.worker.is_alive()),'task':self.task,
+            return {'analysis_performance': summarize_performance(jobs, files, signature),
+                    'python_rss_mib': current_python_rss_mib(),
+                    'analysis_queue': counts, 'busy':bool(self.worker and self.worker.is_alive()),'task':self.task,
                     'progress':round(self.progress,2),'message':self.message,'error':self.error,
                     'events':self.events[-70:],'source_dir':self.project.get('source_dir',''),
                     'work_dir':str(self.work_dir), 'files':files,'clips':clips,
@@ -640,30 +645,36 @@ class Studio:
                 job['state'] = 'running'
                 job['attempts'] += 1
                 job['error'] = ''
+                job['metrics'] = {}  # Previous attempt's measurements must not masquerade as current.
                 self._save()  # Crash recovery can see this job was interrupted.
             self.log(f'Анализ {i+1}/{total}: {file["relative"]} (CPU: {threads} потоков)')
+            profile = AnalysisProfile(file.get('duration', 0))
+            audio, motion, segments = [], [], []
             try:
                 # Do not analyze stale files: a rescan is needed to update metadata/ID.
                 stat = Path(file['path']).stat()
                 if stat.st_size != file['size'] or ('mtime_ns' in file and stat.st_mtime_ns != file['mtime_ns']):
                     raise RuntimeError('Исходный файл изменился. Повторно просканируйте библиотеку.')
-                audio = audio_envelope(file['path'], file['duration'], self.stop, threads=threads) if file.get('audio') else []
-                segments = []
+                if file.get('audio'):
+                    with profile.stage('audio'):
+                        audio = audio_envelope(file['path'], file['duration'], self.stop, threads=threads)
                 if model and file.get('audio'):
                     self.log('Распознаю речь: '+file['name'])
-                    segments = transcribe(file['path'], model, self.stop)
-                motion = []
+                    with profile.stage('transcription'):
+                        segments = transcribe(file['path'], model, self.stop)
                 if settings.get('vision'):
                     self.log('Анализ движения кадров: '+file['name'])
-                    motion = motion_envelope(file['path'], self.stop, threads=threads)
+                    with profile.stage('motion'):
+                        motion = motion_envelope(file['path'], self.stop, threads=threads)
                 if segments and settings.get('ollama_model'):
                     self.log('Контекстная оценка диалогов локальным Ollama')
-                    try:
-                        ollama_rank(segments, settings['ollama_model'], self.stop)
-                    except InterruptedError:
-                        raise
-                    except Exception as exc:
-                        self.log('Ollama недоступна (использую эвристику): '+str(exc)[:180])
+                    with profile.stage('dialogue'):
+                        try:
+                            ollama_rank(segments, settings['ollama_model'], self.stop)
+                        except InterruptedError:
+                            raise
+                        except Exception as exc:
+                            self.log('Ollama недоступна (использую эвристику): '+str(exc)[:180])
                 if self.stop.is_set():
                     raise InterruptedError('Обработка остановлена; очередь сохранена')
                 with self.lock:
@@ -672,11 +683,15 @@ class Studio:
                     file['analysis_signature'] = signature
                     job['state'] = 'complete'
                     job['error'] = ''
+                    job['metrics'] = profile.snapshot(audio_windows=len(audio), motion_windows=len(motion),
+                                                      transcript_segments=len(segments))
                     self._save()
                 self.log(f'Готово: {file["name"]}; реплик {len(segments)}; аудио-окон {len(audio)}')
             except InterruptedError:
                 with self.lock:
                     job['state'] = 'pending'
+                    job['metrics'] = profile.snapshot(audio_windows=len(audio), motion_windows=len(motion),
+                                                      transcript_segments=len(segments))
                     self._save()
                 raise
             except Exception as exc:
@@ -684,6 +699,8 @@ class Studio:
                 with self.lock:
                     job['state'] = 'failed'
                     job['error'] = str(exc)[:300]
+                    job['metrics'] = profile.snapshot(audio_windows=len(audio), motion_windows=len(motion),
+                                                      transcript_segments=len(segments))
                     self._save()
                 self.log(f'Не удалось обработать {file["name"]}: {str(exc)[:200]}')
             finally:
